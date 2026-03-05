@@ -684,3 +684,107 @@ export type NewDeployment = typeof deployments.$inferInsert;
 export const deploymentsRelations = relations(deployments, ({ one }) => ({
 	user: one(users, { fields: [deployments.userId], references: [users.id] }),
 }));
+
+// =============================================================================
+// KINFOLK - Family Directory Tables
+// =============================================================================
+
+export const families = createTable("family", {
+	id: varchar("id", { length: 255 }).primaryKey().$defaultFn(() => crypto.randomUUID()),
+	name: text("name").notNull(),
+	createdBy: varchar("created_by", { length: 255 }),
+	createdAt: timestamp("created_at", { withTimezone: true }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export const people = createTable("person", {
+	id: varchar("id", { length: 255 }).primaryKey().$defaultFn(() => crypto.randomUUID()),
+	familyId: varchar("family_id", { length: 255 }).references(() => families.id, { onDelete: "cascade" }),
+	userId: varchar("user_id", { length: 255 }).references(() => users.id),
+	firstName: text("first_name").notNull(),
+	middleName: text("middle_name"),
+	lastName: text("last_name").notNull(),
+	maidenName: text("maiden_name"),
+	nickname: text("nickname"),
+	birthdate: text("birthdate"), // stored as ISO string for simplicity
+	deathdate: text("deathdate"),
+	gender: text("gender"),
+	bio: text("bio"),
+	avatarUrl: text("avatar_url"),
+	isAlive: boolean("is_alive").default(true),
+	createdAt: timestamp("created_at", { withTimezone: true }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export const contacts = createTable("contact", {
+	id: varchar("id", { length: 255 }).primaryKey().$defaultFn(() => crypto.randomUUID()),
+	personId: varchar("person_id", { length: 255 }).references(() => people.id, { onDelete: "cascade" }).notNull(),
+	type: text("type").notNull(), // 'email', 'phone', 'social'
+	subtype: text("subtype"), // 'home', 'work', 'mobile', 'instagram'
+	value: text("value").notNull(),
+	isPrimary: boolean("is_primary").default(false),
+	createdAt: timestamp("created_at", { withTimezone: true }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export const addresses = createTable("address", {
+	id: varchar("id", { length: 255 }).primaryKey().$defaultFn(() => crypto.randomUUID()),
+	personId: varchar("person_id", { length: 255 }).references(() => people.id, { onDelete: "cascade" }).notNull(),
+	label: text("label"), // 'home', 'work'
+	street1: text("street1").notNull(),
+	street2: text("street2"),
+	city: text("city").notNull(),
+	state: text("state").notNull(),
+	zip: text("zip").notNull(),
+	country: text("country").default("US"),
+	isPrimary: boolean("is_primary").default(true),
+	createdAt: timestamp("created_at", { withTimezone: true }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export const relationships = createTable("relationship", {
+	id: varchar("id", { length: 255 }).primaryKey().$defaultFn(() => crypto.randomUUID()),
+	personId: varchar("person_id", { length: 255 }).references(() => people.id, { onDelete: "cascade" }).notNull(),
+	relatedId: varchar("related_id", { length: 255 }).references(() => people.id, { onDelete: "cascade" }).notNull(),
+	type: text("type").notNull(), // 'parent', 'child', 'spouse', 'sibling', 'partner'
+	startedAt: text("started_at"),
+	endedAt: text("ended_at"),
+	createdAt: timestamp("created_at", { withTimezone: true }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+// Kinfolk relations
+export const familiesRelations = relations(families, ({ many }) => ({
+	people: many(people),
+}));
+
+export const peopleRelations = relations(people, ({ one, many }) => ({
+	family: one(families, { fields: [people.familyId], references: [families.id] }),
+	user: one(users, { fields: [people.userId], references: [users.id] }),
+	contacts: many(contacts),
+	addresses: many(addresses),
+	relationshipsFrom: many(relationships, { relationName: "personRelationships" }),
+	relationshipsTo: many(relationships, { relationName: "relatedRelationships" }),
+}));
+
+export const contactsRelations = relations(contacts, ({ one }) => ({
+	person: one(people, { fields: [contacts.personId], references: [people.id] }),
+}));
+
+export const addressesRelations = relations(addresses, ({ one }) => ({
+	person: one(people, { fields: [addresses.personId], references: [people.id] }),
+}));
+
+export const relationshipsRelations = relations(relationships, ({ one }) => ({
+	person: one(people, { fields: [relationships.personId], references: [people.id], relationName: "personRelationships" }),
+	related: one(people, { fields: [relationships.relatedId], references: [people.id], relationName: "relatedRelationships" }),
+}));
+
+// Type exports
+export type Family = typeof families.$inferSelect;
+export type NewFamily = typeof families.$inferInsert;
+export type Person = typeof people.$inferSelect;
+export type NewPerson = typeof people.$inferInsert;
+export type Contact = typeof contacts.$inferSelect;
+export type NewContact = typeof contacts.$inferInsert;
+export type Address = typeof addresses.$inferSelect;
+export type NewAddress = typeof addresses.$inferInsert;
+export type Relationship = typeof relationships.$inferSelect;
+export type NewRelationship = typeof relationships.$inferInsert;
