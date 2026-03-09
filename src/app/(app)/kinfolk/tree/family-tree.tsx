@@ -144,6 +144,7 @@ function TreeLegend({
 	onSearchSelect,
 	searchResults,
 	onReset,
+	onFocusMyBranch,
 }: {
 	filters: TreeFilters;
 	setFilters: Dispatch<SetStateAction<TreeFilters>>;
@@ -153,6 +154,7 @@ function TreeLegend({
 	onSearchSelect: (personId: string) => void;
 	searchResults: { id: string; name: string }[];
 	onReset: () => void;
+	onFocusMyBranch?: () => void;
 }) {
 	const [searchOpen, setSearchOpen] = useState(false);
 
@@ -237,14 +239,25 @@ function TreeLegend({
 				</div>
 			)}
 
-			{/* Reset */}
-			<button
-				type="button"
-				onClick={onReset}
-				className="mt-1 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted transition-colors"
-			>
-				Reset View
-			</button>
+			{/* Actions */}
+			<div className="flex gap-2 mt-1">
+				{onFocusMyBranch && (
+					<button
+						type="button"
+						onClick={onFocusMyBranch}
+						className="flex-1 rounded-md bg-primary px-2 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+					>
+						🌿 My Branch
+					</button>
+				)}
+				<button
+					type="button"
+					onClick={onReset}
+					className="flex-1 rounded-md border px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted transition-colors"
+				>
+					Reset
+				</button>
+			</div>
 		</div>
 	);
 }
@@ -290,7 +303,7 @@ function ToggleRow({
 // Inner tree (needs ReactFlow context)
 // ---------------------------------------------------------------------------
 
-function FamilyTreeInner({ people, relationships }: FamilyTreeProps) {
+function FamilyTreeInner({ people, relationships, currentPersonId }: FamilyTreeProps) {
 	const { fitView, setCenter, getZoom } = useReactFlow();
 
 	const [filters, setFilters] = useState<TreeFilters>({
@@ -384,7 +397,67 @@ function FamilyTreeInner({ people, relationships }: FamilyTreeProps) {
 			.map((p) => ({ id: p.id as string, name: `${p.firstName} ${p.lastName}` }));
 	}, [searchQuery, people]);
 
-	// Focus on person
+	// Build parent/child maps for lineage traversal
+	const { parentMap, childMap, spouseMap } = useMemo(() => {
+		const pm = new Map<string, Set<string>>(); // child → parents
+		const cm = new Map<string, Set<string>>(); // parent → children
+		const sm = new Map<string, Set<string>>(); // person → spouses
+		for (const rel of relationships) {
+			if (rel.type === "parent") {
+				getOrCreate(pm, rel.relatedId).add(rel.personId);
+				getOrCreate(cm, rel.personId).add(rel.relatedId);
+			}
+			if (rel.type === "spouse" || rel.type === "partner") {
+				getOrCreate(sm, rel.personId).add(rel.relatedId);
+				getOrCreate(sm, rel.relatedId).add(rel.personId);
+			}
+		}
+		return { parentMap: pm, childMap: cm, spouseMap: sm };
+	}, [relationships]);
+
+	// Collect full lineage: all ancestors + all descendants + their spouses
+	const getLineage = useCallback(
+		(personId: string): Set<string> => {
+			const lineage = new Set<string>([personId]);
+
+			// Walk up ancestors
+			const upQueue = [personId];
+			while (upQueue.length > 0) {
+				const cur = upQueue.pop()!;
+				for (const parentId of parentMap.get(cur) ?? []) {
+					if (!lineage.has(parentId)) {
+						lineage.add(parentId);
+						upQueue.push(parentId);
+					}
+				}
+			}
+
+			// Walk down descendants
+			const downQueue = [personId];
+			while (downQueue.length > 0) {
+				const cur = downQueue.pop()!;
+				for (const childId of childMap.get(cur) ?? []) {
+					if (!lineage.has(childId)) {
+						lineage.add(childId);
+						downQueue.push(childId);
+					}
+				}
+			}
+
+			// Include spouses of everyone in lineage
+			const withSpouses = new Set(lineage);
+			for (const id of lineage) {
+				for (const spId of spouseMap.get(id) ?? []) {
+					withSpouses.add(spId);
+				}
+			}
+
+			return withSpouses;
+		},
+		[parentMap, childMap, spouseMap],
+	);
+
+	// Focus on person (direct family only)
 	const focusPerson = useCallback(
 		(personId: string) => {
 			const node = fullGraph.nodes.find((n) => n.id === personId);
@@ -401,13 +474,32 @@ function FamilyTreeInner({ people, relationships }: FamilyTreeProps) {
 			// Pan to them
 			const zoom = Math.max(getZoom(), 0.8);
 			setCenter(
-				node.position.x + 100, // approximate center of node
+				node.position.x + 100,
 				node.position.y + 40,
 				{ zoom, duration: 600 },
 			);
 		},
 		[fullGraph.nodes, relationships, setCenter, getZoom],
 	);
+
+	// Focus My Branch — full lineage highlight
+	const focusMyBranch = useCallback(() => {
+		if (!currentPersonId) return;
+
+		const lineage = getLineage(currentPersonId);
+		setHighlightedIds(lineage);
+
+		// Pan to the current person
+		const node = fullGraph.nodes.find((n) => n.id === currentPersonId);
+		if (node) {
+			const zoom = Math.max(getZoom(), 0.5);
+			setCenter(
+				node.position.x + 100,
+				node.position.y + 40,
+				{ zoom, duration: 600 },
+			);
+		}
+	}, [currentPersonId, getLineage, fullGraph.nodes, setCenter, getZoom]);
 
 	// Double-click node to toggle collapse
 	const onNodeDoubleClick = useCallback(
@@ -459,6 +551,7 @@ function FamilyTreeInner({ people, relationships }: FamilyTreeProps) {
 				onSearchSelect={focusPerson}
 				searchResults={searchResults}
 				onReset={handleReset}
+				onFocusMyBranch={currentPersonId ? focusMyBranch : undefined}
 			/>
 
 			{/* Keyboard hint */}
@@ -504,12 +597,13 @@ function FamilyTreeInner({ people, relationships }: FamilyTreeProps) {
 interface FamilyTreeProps {
 	people: Person[];
 	relationships: Relationship[];
+	currentPersonId?: string;
 }
 
-export const FamilyTree = ({ people, relationships }: FamilyTreeProps) => {
+export const FamilyTree = ({ people, relationships, currentPersonId }: FamilyTreeProps) => {
 	return (
 		<ReactFlowProvider>
-			<FamilyTreeInner people={people} relationships={relationships} />
+			<FamilyTreeInner people={people} relationships={relationships} currentPersonId={currentPersonId} />
 		</ReactFlowProvider>
 	);
 };
