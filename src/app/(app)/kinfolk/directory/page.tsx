@@ -19,5 +19,5 @@ export default async function DirectoryPage() {
 		address: (row.address as Address) ?? null,
 	}));
 
-	return <DirectoryClient people={people} />;
+	return <DirectoryClient people={people} familyId={family.id} />;
 }
