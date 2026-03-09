@@ -12,7 +12,6 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { exportVCard, exportCSV } from "@/server/actions/kinfolk/export";
-import { useRealtimeSubscription, KINFOLK_TABLES } from "@/hooks/use-realtime";
 import type { Person, Address } from "@/server/db/schema";
 
 interface PersonWithAddress {
@@ -26,8 +25,6 @@ interface DirectoryClientProps {
 }
 
 export const DirectoryClient = ({ people, familyId }: DirectoryClientProps) => {
-	useRealtimeSubscription([KINFOLK_TABLES.person]);
-
 	const [search, setSearch] = useState("");
 	const [sortBy, setSortBy] = useState<"name" | "age">("name");
 	const [filterLastName, setFilterLastName] = useState<string>("all");
