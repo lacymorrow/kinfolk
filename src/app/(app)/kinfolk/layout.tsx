@@ -2,9 +2,12 @@ import Link from "next/link";
 import { type ReactNode } from "react";
 
 const navItems = [
-	{ href: "/kinfolk/tree", label: "Family Tree" },
 	{ href: "/kinfolk/directory", label: "Directory" },
-	{ href: "/kinfolk/admin/family", label: "Manage" },
+	{ href: "/kinfolk/tree", label: "Tree" },
+	{ href: "/kinfolk/events", label: "Events" },
+	{ href: "/kinfolk/photos", label: "Photos" },
+	{ href: "/kinfolk/feed", label: "Feed" },
+	{ href: "/kinfolk/profile", label: "Profile" },
 ];
 
 export default function KinfolkLayout({ children }: { children: ReactNode }) {
