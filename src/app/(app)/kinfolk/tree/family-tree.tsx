@@ -7,6 +7,8 @@ import {
 	MiniMap,
 	useNodesState,
 	useEdgesState,
+	useReactFlow,
+	ReactFlowProvider,
 	type Node,
 	type Edge,
 	type NodeProps,
@@ -15,29 +17,91 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useRouter } from "next/navigation";
-import { useCallback, useMemo } from "react";
+import {
+	useCallback,
+	useMemo,
+	useState,
+	useRef,
+	useEffect,
+	type Dispatch,
+	type SetStateAction,
+} from "react";
 import type { Person, Relationship } from "@/server/db/schema";
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+type RelType = "parent" | "spouse" | "sibling";
 
 interface PersonNodeData {
 	person: Person;
 	label: string;
+	branchColor?: string;
+	highlighted?: boolean;
+	dimmed?: boolean;
+	collapsed?: boolean;
 	[key: string]: unknown;
 }
+
+interface TreeFilters {
+	showParent: boolean;
+	showSpouse: boolean;
+	showSibling: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Branch palette
+// ---------------------------------------------------------------------------
+
+const BRANCH_COLORS = [
+	"#6366f1", // indigo
+	"#0ea5e9", // sky
+	"#10b981", // emerald
+	"#f59e0b", // amber
+	"#ef4444", // red
+	"#8b5cf6", // violet
+	"#ec4899", // pink
+	"#14b8a6", // teal
+];
+
+function getBranchColor(index: number) {
+	return BRANCH_COLORS[index % BRANCH_COLORS.length]!;
+}
+
+// ---------------------------------------------------------------------------
+// Person Node
+// ---------------------------------------------------------------------------
 
 const PersonNode = ({ data }: NodeProps<Node<PersonNodeData>>) => {
 	const router = useRouter();
 	const person = data.person;
-	const initials = `${person.firstName[0]}${person.lastName[0]}`;
-	const birthYear = person.birthdate ? new Date(person.birthdate).getFullYear() : null;
+	const initials = `${person.firstName?.[0] ?? ""}${person.lastName?.[0] ?? ""}`;
+	const birthYear = person.birthdate
+		? new Date(person.birthdate).getFullYear()
+		: null;
+
+	const borderColor = data.branchColor ?? "#6366f1";
+	const dimmed = data.dimmed;
+	const highlighted = data.highlighted;
 
 	return (
 		<div
-			className="cursor-pointer rounded-lg border bg-card p-3 shadow-sm transition-shadow hover:shadow-md"
+			className="cursor-pointer rounded-lg border-2 bg-card p-3 shadow-sm transition-all hover:shadow-md"
+			style={{
+				borderColor: highlighted ? borderColor : dimmed ? "transparent" : borderColor,
+				opacity: dimmed ? 0.25 : 1,
+				transform: highlighted ? "scale(1.05)" : undefined,
+				zIndex: highlighted ? 10 : undefined,
+			}}
 			onClick={() => router.push(`/kinfolk/person/${person.id}`)}
 		>
 			<Handle type="target" position={Position.Top} className="!bg-muted-foreground" />
 			<div className="flex items-center gap-3">
-				<div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-medium text-primary-foreground">
+				<div
+					className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-medium text-white"
+					style={{ backgroundColor: borderColor }}
+				>
 					{person.avatarUrl ? (
 						<img
 							src={person.avatarUrl}
@@ -55,6 +119,9 @@ const PersonNode = ({ data }: NodeProps<Node<PersonNodeData>>) => {
 					{birthYear && (
 						<div className="text-xs text-muted-foreground">b. {birthYear}</div>
 					)}
+					{data.collapsed && (
+						<div className="text-[10px] text-muted-foreground italic">collapsed</div>
+					)}
 				</div>
 			</div>
 			<Handle type="source" position={Position.Bottom} className="!bg-muted-foreground" />
@@ -64,64 +131,411 @@ const PersonNode = ({ data }: NodeProps<Node<PersonNodeData>>) => {
 
 const nodeTypes = { person: PersonNode };
 
-interface FamilyTreeProps {
-	people: Person[];
-	relationships: Relationship[];
+// ---------------------------------------------------------------------------
+// Legend / Controls Panel
+// ---------------------------------------------------------------------------
+
+function TreeLegend({
+	filters,
+	setFilters,
+	branches,
+	searchQuery,
+	setSearchQuery,
+	onSearchSelect,
+	searchResults,
+	onReset,
+}: {
+	filters: TreeFilters;
+	setFilters: Dispatch<SetStateAction<TreeFilters>>;
+	branches: { name: string; color: string }[];
+	searchQuery: string;
+	setSearchQuery: (q: string) => void;
+	onSearchSelect: (personId: string) => void;
+	searchResults: { id: string; name: string }[];
+	onReset: () => void;
+}) {
+	const [searchOpen, setSearchOpen] = useState(false);
+
+	return (
+		<div className="absolute left-4 top-4 z-50 flex flex-col gap-2 rounded-lg border bg-card/95 p-3 shadow-lg backdrop-blur-sm max-w-[260px]">
+			{/* Search */}
+			<div className="relative">
+				<input
+					type="text"
+					placeholder="Search people..."
+					value={searchQuery}
+					onChange={(e) => {
+						setSearchQuery(e.target.value);
+						setSearchOpen(true);
+					}}
+					onFocus={() => setSearchOpen(true)}
+					className="w-full rounded-md border bg-background px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-primary"
+				/>
+				{searchOpen && searchResults.length > 0 && (
+					<div className="absolute top-full left-0 right-0 mt-1 max-h-48 overflow-y-auto rounded-md border bg-card shadow-lg">
+						{searchResults.map((r) => (
+							<button
+								type="button"
+								key={r.id}
+								className="w-full px-3 py-1.5 text-left text-sm hover:bg-muted truncate"
+								onClick={() => {
+									onSearchSelect(r.id);
+									setSearchOpen(false);
+									setSearchQuery("");
+								}}
+							>
+								{r.name}
+							</button>
+						))}
+					</div>
+				)}
+			</div>
+
+			{/* Relationship toggles */}
+			<div className="space-y-1">
+				<div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+					Relationships
+				</div>
+				<ToggleRow
+					label="Parent → Child"
+					color="#6366f1"
+					dashed={false}
+					checked={filters.showParent}
+					onChange={(v) => setFilters((f) => ({ ...f, showParent: v }))}
+				/>
+				<ToggleRow
+					label="Spouse / Partner"
+					color="#ec4899"
+					dashed
+					checked={filters.showSpouse}
+					onChange={(v) => setFilters((f) => ({ ...f, showSpouse: v }))}
+				/>
+				<ToggleRow
+					label="Sibling"
+					color="#94a3b8"
+					dashed
+					checked={filters.showSibling}
+					onChange={(v) => setFilters((f) => ({ ...f, showSibling: v }))}
+				/>
+			</div>
+
+			{/* Branch colors */}
+			{branches.length > 1 && (
+				<div className="space-y-1">
+					<div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+						Branches
+					</div>
+					{branches.map((b) => (
+						<div key={b.name} className="flex items-center gap-2 text-xs">
+							<span
+								className="inline-block h-3 w-3 rounded-full"
+								style={{ backgroundColor: b.color }}
+							/>
+							<span className="truncate">{b.name}</span>
+						</div>
+					))}
+				</div>
+			)}
+
+			{/* Reset */}
+			<button
+				type="button"
+				onClick={onReset}
+				className="mt-1 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted transition-colors"
+			>
+				Reset View
+			</button>
+		</div>
+	);
 }
 
-export const FamilyTree = ({ people, relationships }: FamilyTreeProps) => {
-	const { nodes: initialNodes, edges: initialEdges } = useMemo(
+function ToggleRow({
+	label,
+	color,
+	dashed,
+	checked,
+	onChange,
+}: {
+	label: string;
+	color: string;
+	dashed: boolean;
+	checked: boolean;
+	onChange: (v: boolean) => void;
+}) {
+	return (
+		<label className="flex cursor-pointer items-center gap-2 text-xs">
+			<input
+				type="checkbox"
+				checked={checked}
+				onChange={(e) => onChange(e.target.checked)}
+				className="accent-primary h-3.5 w-3.5"
+			/>
+			<svg width="24" height="8" className="shrink-0">
+				<line
+					x1="0"
+					y1="4"
+					x2="24"
+					y2="4"
+					stroke={color}
+					strokeWidth="2"
+					strokeDasharray={dashed ? "4 3" : undefined}
+				/>
+			</svg>
+			<span>{label}</span>
+		</label>
+	);
+}
+
+// ---------------------------------------------------------------------------
+// Inner tree (needs ReactFlow context)
+// ---------------------------------------------------------------------------
+
+function FamilyTreeInner({ people, relationships }: FamilyTreeProps) {
+	const { fitView, setCenter, getZoom } = useReactFlow();
+
+	const [filters, setFilters] = useState<TreeFilters>({
+		showParent: true,
+		showSpouse: true,
+		showSibling: false, // off by default since these are most overwhelming
+	});
+
+	const [highlightedIds, setHighlightedIds] = useState<Set<string>>(new Set());
+	const [collapsedUnits, setCollapsedUnits] = useState<Set<string>>(new Set());
+	const [searchQuery, setSearchQuery] = useState("");
+
+	// Build the full graph once
+	const fullGraph = useMemo(
 		() => buildGraph(people, relationships),
 		[people, relationships],
 	);
 
-	const [nodes, , onNodesChange] = useNodesState(initialNodes);
-	const [edges, , onEdgesChange] = useEdgesState(initialEdges);
+	// Branch info for legend
+	const branches = useMemo(() => fullGraph.branches, [fullGraph.branches]);
+
+	// Derive visible nodes + edges based on filters, collapsed state, highlights
+	const { visibleNodes, visibleEdges } = useMemo(() => {
+		const hiddenIds = new Set<string>();
+
+		// Compute hidden nodes from collapsed units
+		for (const unitId of collapsedUnits) {
+			const descendants = fullGraph.unitDescendants.get(unitId);
+			if (descendants) {
+				for (const id of descendants) hiddenIds.add(id);
+			}
+		}
+
+		const vNodes = fullGraph.nodes
+			.filter((n) => !hiddenIds.has(n.id))
+			.map((n) => ({
+				...n,
+				data: {
+					...n.data,
+					highlighted: highlightedIds.size > 0 && highlightedIds.has(n.id),
+					dimmed: highlightedIds.size > 0 && !highlightedIds.has(n.id),
+					collapsed: collapsedUnits.has(n.id),
+				},
+			}));
+
+		const visibleIdSet = new Set(vNodes.map((n) => n.id));
+
+		const vEdges = fullGraph.edges.filter((e) => {
+			// Filter by type
+			const relType = (e.data as { relType?: RelType })?.relType;
+			if (relType === "parent" && !filters.showParent) return false;
+			if ((relType === "spouse" || relType === "partner") && !filters.showSpouse) return false;
+			if (relType === "sibling" && !filters.showSibling) return false;
+			// Filter by visibility
+			if (!visibleIdSet.has(e.source) || !visibleIdSet.has(e.target)) return false;
+			return true;
+		}).map((e) => ({
+			...e,
+			style: {
+				...e.style,
+				opacity: highlightedIds.size > 0
+					? (highlightedIds.has(e.source) && highlightedIds.has(e.target) ? 1 : 0.08)
+					: 1,
+			},
+		}));
+
+		return { visibleNodes: vNodes, visibleEdges: vEdges };
+	}, [fullGraph, filters, highlightedIds, collapsedUnits]);
+
+	const [nodes, setNodes, onNodesChange] = useNodesState(visibleNodes);
+	const [edges, setEdges, onEdgesChange] = useEdgesState(visibleEdges);
+
+	// Sync derived state into ReactFlow state
+	useEffect(() => {
+		setNodes(visibleNodes);
+		setEdges(visibleEdges);
+	}, [visibleNodes, visibleEdges, setNodes, setEdges]);
+
+	// Search
+	const searchResults = useMemo(() => {
+		if (!searchQuery.trim()) return [];
+		const q = searchQuery.toLowerCase();
+		return people
+			.filter(
+				(p) =>
+					p.firstName.toLowerCase().includes(q) ||
+					p.lastName.toLowerCase().includes(q) ||
+					`${p.firstName} ${p.lastName}`.toLowerCase().includes(q),
+			)
+			.slice(0, 8)
+			.map((p) => ({ id: p.id as string, name: `${p.firstName} ${p.lastName}` }));
+	}, [searchQuery, people]);
+
+	// Focus on person
+	const focusPerson = useCallback(
+		(personId: string) => {
+			const node = fullGraph.nodes.find((n) => n.id === personId);
+			if (!node) return;
+
+			// Highlight this person + their direct family
+			const related = new Set<string>([personId]);
+			for (const rel of relationships) {
+				if (rel.personId === personId) related.add(rel.relatedId);
+				if (rel.relatedId === personId) related.add(rel.personId);
+			}
+			setHighlightedIds(related);
+
+			// Pan to them
+			const zoom = Math.max(getZoom(), 0.8);
+			setCenter(
+				node.position.x + 100, // approximate center of node
+				node.position.y + 40,
+				{ zoom, duration: 600 },
+			);
+		},
+		[fullGraph.nodes, relationships, setCenter, getZoom],
+	);
+
+	// Double-click node to toggle collapse
+	const onNodeDoubleClick = useCallback(
+		(_event: React.MouseEvent, node: Node) => {
+			const unitId = fullGraph.unitParents.has(node.id) ? node.id : undefined;
+			if (!unitId) return;
+
+			setCollapsedUnits((prev) => {
+				const next = new Set(prev);
+				if (next.has(unitId)) {
+					next.delete(unitId);
+				} else {
+					next.add(unitId);
+				}
+				return next;
+			});
+		},
+		[fullGraph.unitParents],
+	);
+
+	// Single click to highlight lineage
+	const onNodeClick = useCallback(
+		(_event: React.MouseEvent, node: Node) => {
+			// If already highlighting this person, clear
+			if (highlightedIds.has(node.id) && highlightedIds.size > 1) {
+				setHighlightedIds(new Set());
+				return;
+			}
+			focusPerson(node.id);
+		},
+		[highlightedIds, focusPerson],
+	);
+
+	const handleReset = useCallback(() => {
+		setHighlightedIds(new Set());
+		setCollapsedUnits(new Set());
+		setSearchQuery("");
+		setTimeout(() => fitView({ duration: 400 }), 50);
+	}, [fitView]);
 
 	return (
-		<div className="h-[calc(100vh-3.5rem)] w-full">
+		<div className="relative h-[calc(100vh-3.5rem)] w-full">
+			<TreeLegend
+				filters={filters}
+				setFilters={setFilters}
+				branches={branches}
+				searchQuery={searchQuery}
+				setSearchQuery={setSearchQuery}
+				onSearchSelect={focusPerson}
+				searchResults={searchResults}
+				onReset={handleReset}
+			/>
+
+			{/* Keyboard hint */}
+			<div className="absolute right-4 top-4 z-50 rounded-lg border bg-card/90 px-3 py-2 text-[11px] text-muted-foreground backdrop-blur-sm">
+				<div><kbd className="font-mono">Click</kbd> person to highlight lineage</div>
+				<div><kbd className="font-mono">Double-click</kbd> to collapse/expand branch</div>
+				<div><kbd className="font-mono">Scroll</kbd> to zoom</div>
+			</div>
+
 			<ReactFlow
 				nodes={nodes}
 				edges={edges}
 				onNodesChange={onNodesChange}
 				onEdgesChange={onEdgesChange}
+				onNodeClick={onNodeClick}
+				onNodeDoubleClick={onNodeDoubleClick}
 				nodeTypes={nodeTypes}
 				fitView
-				minZoom={0.1}
+				minZoom={0.05}
 				maxZoom={2}
 				defaultEdgeOptions={{ animated: false }}
+				proOptions={{ hideAttribution: true }}
 			>
 				<Background />
 				<Controls />
 				<MiniMap
-					nodeColor="#6366f1"
+					nodeColor={(node) => {
+						const data = node.data as PersonNodeData;
+						return data.branchColor ?? "#6366f1";
+					}}
 					maskColor="rgb(0, 0, 0, 0.1)"
 					className="!bg-background"
 				/>
 			</ReactFlow>
 		</div>
 	);
+}
+
+// ---------------------------------------------------------------------------
+// Exported wrapper (provides ReactFlow context)
+// ---------------------------------------------------------------------------
+
+interface FamilyTreeProps {
+	people: Person[];
+	relationships: Relationship[];
+}
+
+export const FamilyTree = ({ people, relationships }: FamilyTreeProps) => {
+	return (
+		<ReactFlowProvider>
+			<FamilyTreeInner people={people} relationships={relationships} />
+		</ReactFlowProvider>
+	);
 };
 
-/**
- * Hierarchical family tree layout.
- *
- * Strategy:
- * 1. Build a "family unit" model: each couple (or single parent) + their children
- * 2. Assign generations top-down from root ancestors
- * 3. Recursively lay out each subtree so children cluster beneath their parents
- * 4. Spouses sit side-by-side; children fan out below the couple's midpoint
- */
+// ---------------------------------------------------------------------------
+// Graph builder
+// ---------------------------------------------------------------------------
+
+interface GraphResult {
+	nodes: Node<PersonNodeData>[];
+	edges: Edge[];
+	branches: { name: string; color: string }[];
+	unitParents: Set<string>;
+	unitDescendants: Map<string, Set<string>>;
+}
+
 function buildGraph(
 	people: Person[],
 	relationships: Relationship[],
-): { nodes: Node<PersonNodeData>[]; edges: Edge[] } {
+): GraphResult {
 	const personMap = new Map(people.map((p) => [p.id, p]));
 
-	// --- Build adjacency maps ---
+	// --- Adjacency ---
 	const childToParents = new Map<string, Set<string>>();
 	const parentToChildren = new Map<string, Set<string>>();
-	const spouseOf = new Map<string, string>(); // bidirectional first-seen
+	const spouseOf = new Map<string, string>();
 
 	for (const rel of relationships) {
 		if (rel.type === "parent") {
@@ -136,11 +550,10 @@ function buildGraph(
 		}
 	}
 
-	// --- Assign generations via BFS from roots ---
+	// --- Generations ---
 	const generation = new Map<string, number>();
 	const roots = people.filter((p) => !childToParents.has(p.id));
 
-	// Ensure married-in spouses at root level are roots too
 	for (const r of [...roots]) {
 		const sp = spouseOf.get(r.id);
 		if (sp && !roots.find((x) => x.id === sp)) {
@@ -161,14 +574,12 @@ function buildGraph(
 		const cur = queue.shift()!;
 		const gen = generation.get(cur)!;
 
-		// Spouse gets same generation
 		const sp = spouseOf.get(cur);
 		if (sp && !generation.has(sp)) {
 			generation.set(sp, gen);
 			queue.push(sp);
 		}
 
-		// Children get gen + 1
 		for (const childId of parentToChildren.get(cur) ?? []) {
 			const existing = generation.get(childId);
 			if (existing === undefined || gen + 1 > existing) {
@@ -178,25 +589,19 @@ function buildGraph(
 		}
 	}
 
-	// Anyone still unplaced
 	for (const p of people) {
 		if (!generation.has(p.id)) generation.set(p.id, 0);
 	}
 
-	// --- Build "family units" for layout ---
-	// A family unit = one or two parents + their shared children
-	// We key units by the "primary parent" (blood-relative or first found)
-
+	// --- Family units ---
 	interface FamilyUnit {
-		parents: string[]; // 1 or 2 person IDs
-		children: string[]; // ordered child IDs
+		parents: string[];
+		children: string[];
 	}
 
 	const unitByParent = new Map<string, FamilyUnit>();
 	const assignedToUnit = new Set<string>();
 
-	// Deduplicate children: for a couple, children appear under both parents
-	// Merge into a single unit keyed by the first parent
 	for (const [parentId, kids] of parentToChildren) {
 		if (assignedToUnit.has(parentId)) continue;
 
@@ -204,7 +609,6 @@ function buildGraph(
 		const unitParents = [parentId];
 		if (sp) unitParents.push(sp);
 
-		// Collect all children of this couple (union)
 		const allKids = new Set<string>();
 		for (const pid of unitParents) {
 			for (const kid of parentToChildren.get(pid) ?? []) {
@@ -212,30 +616,107 @@ function buildGraph(
 			}
 		}
 
-		const unit: FamilyUnit = {
+		unitByParent.set(parentId, {
 			parents: unitParents,
 			children: [...allKids],
-		};
-
-		unitByParent.set(parentId, unit);
+		});
 		for (const pid of unitParents) assignedToUnit.add(pid);
 	}
 
-	// --- Recursive subtree layout ---
+	// Track which persons are unit-parents (for collapse)
+	const unitParentSet = new Set<string>();
+	for (const [id] of unitByParent) {
+		unitParentSet.add(id);
+	}
+
+	// Compute descendants of each unit (for collapse)
+	const unitDescendants = new Map<string, Set<string>>();
+
+	function getDescendants(unitId: string): Set<string> {
+		if (unitDescendants.has(unitId)) return unitDescendants.get(unitId)!;
+		const desc = new Set<string>();
+		const unit = unitByParent.get(unitId);
+		if (!unit) return desc;
+
+		for (const childId of unit.children) {
+			desc.add(childId);
+			// Also add child's spouse
+			const childSp = spouseOf.get(childId);
+			if (childSp) desc.add(childSp);
+
+			// Recurse if child has their own unit
+			const childUnit = findUnitForPerson(childId);
+			if (childUnit && childUnit !== unitId) {
+				for (const d of getDescendants(childUnit)) desc.add(d);
+			}
+		}
+
+		unitDescendants.set(unitId, desc);
+		return desc;
+	}
+
+	function findUnitForPerson(personId: string): string | undefined {
+		if (unitByParent.has(personId)) return personId;
+		const sp = spouseOf.get(personId);
+		if (sp && unitByParent.has(sp)) return sp;
+		return undefined;
+	}
+
+	for (const [unitId] of unitByParent) {
+		getDescendants(unitId);
+	}
+
+	// --- Branch coloring ---
+	// Each root unit gets a branch color; descendants inherit
+	const branchColorMap = new Map<string, string>();
+	const branchNames: { name: string; color: string }[] = [];
+
+	const rootUnits: string[] = [];
+	for (const [parentId] of unitByParent) {
+		const gen = generation.get(parentId) ?? 0;
+		if (gen === 0) rootUnits.push(parentId);
+	}
+
+	// Also handle root-level people not in any unit
+	const rootSingles = roots.filter(
+		(r) => !assignedToUnit.has(r.id) && (generation.get(r.id) ?? 0) === 0,
+	);
+
+	let branchIdx = 0;
+	for (const unitId of rootUnits) {
+		const color = getBranchColor(branchIdx);
+		const unit = unitByParent.get(unitId)!;
+		for (const pid of unit.parents) branchColorMap.set(pid, color);
+
+		const desc = unitDescendants.get(unitId);
+		if (desc) {
+			for (const id of desc) branchColorMap.set(id, color);
+		}
+
+		const mainPerson = personMap.get(unitId);
+		branchNames.push({
+			name: mainPerson ? `${mainPerson.lastName} family` : `Branch ${branchIdx + 1}`,
+			color,
+		});
+		branchIdx++;
+	}
+
+	for (const r of rootSingles) {
+		if (!branchColorMap.has(r.id)) {
+			branchColorMap.set(r.id, getBranchColor(branchIdx++));
+		}
+	}
+
+	// --- Layout ---
 	const NODE_WIDTH = 200;
 	const NODE_HEIGHT = 80;
-	const COUPLE_GAP = 20; // gap between spouses
-	const SIBLING_GAP = 40; // gap between sibling subtrees
-	const GEN_GAP = 140; // vertical gap between generations
+	const COUPLE_GAP = 20;
+	const SIBLING_GAP = 40;
+	const GEN_GAP = 140;
 
 	const positions = new Map<string, { x: number; y: number }>();
 	const laid = new Set<string>();
 
-	/**
-	 * Lay out a subtree rooted at a family unit.
-	 * Returns the total width consumed by this subtree.
-	 * `x` is the left edge, `y` is the top of this generation row.
-	 */
 	function layoutUnit(unitParentId: string, x: number, y: number): number {
 		const unit = unitByParent.get(unitParentId);
 		if (!unit) return 0;
@@ -243,7 +724,6 @@ function buildGraph(
 		const parentIds = unit.parents;
 		const childIds = unit.children.filter((id) => !laid.has(id));
 
-		// Recursively lay out each child's subtree to compute widths
 		interface ChildLayout {
 			id: string;
 			width: number;
@@ -254,7 +734,6 @@ function buildGraph(
 		let childX = x;
 
 		for (const childId of childIds) {
-			// Does this child have their own family unit?
 			const childUnit = findUnitForPerson(childId);
 			let width: number;
 
@@ -273,28 +752,20 @@ function buildGraph(
 			childLayouts.reduce((sum, c) => sum + c.width, 0) +
 			Math.max(0, childLayouts.length - 1) * SIBLING_GAP;
 
-		// Parent couple width
 		const coupleWidth =
-			parentIds.length === 2
-				? NODE_WIDTH * 2 + COUPLE_GAP
-				: NODE_WIDTH;
+			parentIds.length === 2 ? NODE_WIDTH * 2 + COUPLE_GAP : NODE_WIDTH;
 
 		const subtreeWidth = Math.max(totalChildrenWidth, coupleWidth);
 
-		// Position children
 		let cx = x + (subtreeWidth - totalChildrenWidth) / 2;
 		for (const cl of childLayouts) {
 			if (!laid.has(cl.id)) {
-				// Center the child node within its allocated width
 				const childNodeX = cx + (cl.width - NODE_WIDTH) / 2;
 				positions.set(cl.id, { x: childNodeX, y: childY });
 				laid.add(cl.id);
 
-				// Also position the child's spouse next to them if they have one
 				const childSp = spouseOf.get(cl.id);
 				if (childSp && !laid.has(childSp)) {
-					// If this child has their own unit, spouse is already positioned
-					// Otherwise, place spouse next to them
 					if (!positions.has(childSp)) {
 						positions.set(childSp, {
 							x: childNodeX + NODE_WIDTH + COUPLE_GAP,
@@ -307,7 +778,6 @@ function buildGraph(
 			cx += cl.width + SIBLING_GAP;
 		}
 
-		// Position parents centered above children (or above subtree center)
 		const parentY = y;
 		const centerX = x + subtreeWidth / 2;
 
@@ -337,27 +807,6 @@ function buildGraph(
 		return subtreeWidth;
 	}
 
-	/**
-	 * Find the family unit ID where this person is a parent.
-	 */
-	function findUnitForPerson(personId: string): string | undefined {
-		if (unitByParent.has(personId)) return personId;
-		// Check if they're the spouse in someone else's unit
-		const sp = spouseOf.get(personId);
-		if (sp && unitByParent.has(sp)) return sp;
-		return undefined;
-	}
-
-	// Find the topmost family units (generation 0 parents)
-	const rootUnits: string[] = [];
-	for (const [parentId] of unitByParent) {
-		const gen = generation.get(parentId) ?? 0;
-		if (gen === 0 && !laid.has(parentId)) {
-			rootUnits.push(parentId);
-		}
-	}
-
-	// Layout all root units side by side
 	let globalX = 0;
 	for (const unitId of rootUnits) {
 		if (laid.has(unitId)) continue;
@@ -365,13 +814,11 @@ function buildGraph(
 		globalX += width + SIBLING_GAP * 2;
 	}
 
-	// Place anyone still unpositioned (disconnected people, childless couples, etc.)
 	for (const p of people) {
 		if (!positions.has(p.id)) {
 			const gen = generation.get(p.id) ?? 0;
 			const sp = spouseOf.get(p.id);
 
-			// Try to place next to spouse if spouse is positioned
 			if (sp && positions.has(sp)) {
 				const spPos = positions.get(sp)!;
 				positions.set(p.id, {
@@ -388,7 +835,7 @@ function buildGraph(
 		}
 	}
 
-	// --- Build nodes ---
+	// --- Nodes ---
 	const nodes: Node<PersonNodeData>[] = [];
 	for (const p of people) {
 		const pos = positions.get(p.id) ?? { x: 0, y: 0 };
@@ -399,39 +846,48 @@ function buildGraph(
 			data: {
 				person: p,
 				label: `${p.firstName} ${p.lastName}`,
+				branchColor: branchColorMap.get(p.id) ?? "#6366f1",
 			},
 		});
 	}
 
-	// --- Build edges ---
+	// --- Edges ---
 	const edges: Edge[] = [];
 	const edgeSet = new Set<string>();
 
 	for (const rel of relationships) {
 		if (rel.type === "child") continue;
-		// Skip sibling edges — the tree structure implies them
-		if (rel.type === "sibling") continue;
 
 		const edgeId = [rel.personId, rel.relatedId].sort().join("-");
 		if (edgeSet.has(edgeId)) continue;
 		edgeSet.add(edgeId);
 
-		const isSpouseOrPartner = rel.type === "spouse" || rel.type === "partner";
+		const isSpouse = rel.type === "spouse" || rel.type === "partner";
+		const isSibling = rel.type === "sibling";
 
 		edges.push({
 			id: `edge-${rel.id}`,
 			source: rel.personId,
 			target: rel.relatedId,
 			type: "default",
+			data: { relType: rel.type },
 			style: {
-				stroke: isSpouseOrPartner ? "#ec4899" : "#6366f1",
-				strokeWidth: isSpouseOrPartner ? 2 : 1.5,
-				strokeDasharray: isSpouseOrPartner ? "5 5" : undefined,
+				stroke: isSpouse ? "#ec4899" : isSibling ? "#94a3b8" : "#6366f1",
+				strokeWidth: isSpouse ? 2 : isSibling ? 1 : 1.5,
+				strokeDasharray: isSpouse ? "5 5" : isSibling ? "3 3" : undefined,
 			},
 		});
 	}
 
-	return { nodes, edges };
+	// Deduplicate branch names
+	const seen = new Set<string>();
+	const uniqueBranches = branchNames.filter((b) => {
+		if (seen.has(b.name)) return false;
+		seen.add(b.name);
+		return true;
+	});
+
+	return { nodes, edges, branches: uniqueBranches, unitParents: unitParentSet, unitDescendants };
 }
 
 function getOrCreate<K, V>(map: Map<K, Set<V>>, key: K): Set<V> {
