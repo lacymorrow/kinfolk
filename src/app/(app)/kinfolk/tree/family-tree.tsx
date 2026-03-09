@@ -484,13 +484,24 @@ function FamilyTreeInner({ people, relationships, currentPersonId }: FamilyTreeP
 
 	// Focus My Branch — full lineage highlight
 	const focusMyBranch = useCallback(() => {
-		if (!currentPersonId) return;
+		// Use linked person, or fall back to first "Lacy" in the tree
+		let targetId = currentPersonId;
+		if (!targetId) {
+			const fallback = people.find(
+				(p) => p.firstName.toLowerCase() === "lacy",
+			);
+			if (fallback) targetId = fallback.id;
+		}
+		if (!targetId) {
+			// No match at all — just fit the whole tree
+			fitView({ duration: 400 });
+			return;
+		}
 
-		const lineage = getLineage(currentPersonId);
+		const lineage = getLineage(targetId);
 		setHighlightedIds(lineage);
 
-		// Pan to the current person
-		const node = fullGraph.nodes.find((n) => n.id === currentPersonId);
+		const node = fullGraph.nodes.find((n) => n.id === targetId);
 		if (node) {
 			const zoom = Math.max(getZoom(), 0.5);
 			setCenter(
@@ -499,7 +510,7 @@ function FamilyTreeInner({ people, relationships, currentPersonId }: FamilyTreeP
 				{ zoom, duration: 600 },
 			);
 		}
-	}, [currentPersonId, getLineage, fullGraph.nodes, setCenter, getZoom]);
+	}, [currentPersonId, people, getLineage, fullGraph.nodes, setCenter, getZoom, fitView]);
 
 	// Double-click node to toggle collapse
 	const onNodeDoubleClick = useCallback(
@@ -551,7 +562,7 @@ function FamilyTreeInner({ people, relationships, currentPersonId }: FamilyTreeP
 				onSearchSelect={focusPerson}
 				searchResults={searchResults}
 				onReset={handleReset}
-				onFocusMyBranch={currentPersonId ? focusMyBranch : undefined}
+				onFocusMyBranch={focusMyBranch}
 			/>
 
 			{/* Keyboard hint */}
