@@ -10,7 +10,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { createPost, deletePost, togglePinPost } from "@/server/actions/kinfolk/posts";
-import { useRealtimeSubscription, KINFOLK_TABLES } from "@/hooks/use-realtime";
 import type { KinfolkPost } from "@/server/db/schema";
 
 interface PostRow {
@@ -24,8 +23,6 @@ interface FeedClientProps {
 }
 
 export const FeedClient = ({ posts, familyId }: FeedClientProps) => {
-	useRealtimeSubscription([KINFOLK_TABLES.kinfolkPost]);
-
 	const router = useRouter();
 	const [saving, setSaving] = useState(false);
 
