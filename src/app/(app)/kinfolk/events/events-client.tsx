@@ -24,7 +24,6 @@ import {
 	DialogTrigger,
 } from "@/components/ui/dialog";
 import { createEvent } from "@/server/actions/kinfolk/events";
-import { useRealtimeSubscription, KINFOLK_TABLES } from "@/hooks/use-realtime";
 import type { KinfolkEvent } from "@/server/db/schema";
 
 const EVENT_TYPES = [
@@ -53,8 +52,6 @@ interface EventsClientProps {
 }
 
 export const EventsClient = ({ events, familyId }: EventsClientProps) => {
-	useRealtimeSubscription([KINFOLK_TABLES.kinfolkEvent]);
-
 	const router = useRouter();
 	const [filter, setFilter] = useState("all");
 	const [open, setOpen] = useState(false);
