@@ -15,7 +15,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useRouter } from "next/navigation";
-import { useCallback, useMemo } from "react";
+import { useMemo } from "react";
 import type { Person, Relationship } from "@/server/db/schema";
 
 interface PersonNodeData {
@@ -28,14 +28,41 @@ const PersonNode = ({ data }: NodeProps<Node<PersonNodeData>>) => {
 	const router = useRouter();
 	const person = data.person;
 	const initials = `${person.firstName[0]}${person.lastName[0]}`;
-	const birthYear = person.birthdate ? new Date(person.birthdate).getFullYear() : null;
+	const birthYear = person.birthdate
+		? new Date(person.birthdate).getFullYear()
+		: null;
 
 	return (
 		<div
 			className="cursor-pointer rounded-lg border bg-card p-3 shadow-sm transition-shadow hover:shadow-md"
 			onClick={() => router.push(`/kinfolk/person/${person.id}`)}
 		>
-			<Handle type="target" position={Position.Top} className="!bg-muted-foreground" />
+			{/* Vertical handles for parent-child edges */}
+			<Handle
+				type="target"
+				position={Position.Top}
+				id="top"
+				className="!bg-muted-foreground"
+			/>
+			<Handle
+				type="source"
+				position={Position.Bottom}
+				id="bottom"
+				className="!bg-muted-foreground"
+			/>
+			{/* Horizontal handles for spouse/partner edges */}
+			<Handle
+				type="source"
+				position={Position.Left}
+				id="left"
+				className="!bg-pink-400"
+			/>
+			<Handle
+				type="source"
+				position={Position.Right}
+				id="right"
+				className="!bg-pink-400"
+			/>
 			<div className="flex items-center gap-3">
 				<div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-medium text-primary-foreground">
 					{person.avatarUrl ? (
@@ -53,11 +80,12 @@ const PersonNode = ({ data }: NodeProps<Node<PersonNodeData>>) => {
 						{person.firstName} {person.lastName}
 					</div>
 					{birthYear && (
-						<div className="text-xs text-muted-foreground">b. {birthYear}</div>
+						<div className="text-xs text-muted-foreground">
+							b. {birthYear}
+						</div>
 					)}
 				</div>
 			</div>
-			<Handle type="source" position={Position.Bottom} className="!bg-muted-foreground" />
 		</div>
 	);
 };
@@ -103,15 +131,24 @@ export const FamilyTree = ({ people, relationships }: FamilyTreeProps) => {
 	);
 };
 
-/**
- * Hierarchical family tree layout.
- *
- * Strategy:
- * 1. Build a "family unit" model: each couple (or single parent) + their children
- * 2. Assign generations top-down from root ancestors
- * 3. Recursively lay out each subtree so children cluster beneath their parents
- * 4. Spouses sit side-by-side; children fan out below the couple's midpoint
- */
+// ---------------------------------------------------------------------------
+// Union-based family tree layout
+//
+// Key concepts:
+// - A "Union" is a partnership (marriage, partner, etc.) that may have children.
+//   A person can belong to multiple unions (remarriage, blended families).
+// - Children belong to a specific union, not just a parent.
+// - Spouses connect horizontally (left/right handles).
+// - Parent-child connects vertically (bottom/top handles).
+// - For children with parents in different unions, edges go to both parents.
+// ---------------------------------------------------------------------------
+
+interface Union {
+	id: string;
+	partners: string[]; // 1 or 2 person IDs
+	children: string[]; // child IDs from this union
+}
+
 function buildGraph(
 	people: Person[],
 	relationships: Relationship[],
@@ -121,7 +158,9 @@ function buildGraph(
 	// --- Build adjacency maps ---
 	const childToParents = new Map<string, Set<string>>();
 	const parentToChildren = new Map<string, Set<string>>();
-	const spouseOf = new Map<string, string>(); // bidirectional first-seen
+
+	// Track ALL spouse/partner relationships per person (supports multiple)
+	const partnerships = new Map<string, Set<string>>();
 
 	for (const rel of relationships) {
 		if (rel.type === "parent") {
@@ -129,23 +168,141 @@ function buildGraph(
 			getOrCreate(parentToChildren, rel.personId).add(rel.relatedId);
 		}
 		if (rel.type === "spouse" || rel.type === "partner") {
-			if (!spouseOf.has(rel.personId) && !spouseOf.has(rel.relatedId)) {
-				spouseOf.set(rel.personId, rel.relatedId);
-				spouseOf.set(rel.relatedId, rel.personId);
+			getOrCreate(partnerships, rel.personId).add(rel.relatedId);
+			getOrCreate(partnerships, rel.relatedId).add(rel.personId);
+		}
+	}
+
+	// --- Build unions ---
+	// A union is identified by the sorted pair of partners (or single parent).
+	// Children are assigned to a union based on which parents they share.
+	const unions: Union[] = [];
+	const unionMap = new Map<string, Union>(); // unionKey -> Union
+	const personToUnions = new Map<string, string[]>(); // personId -> unionIds[]
+
+	// First, create unions from partnerships
+	const seenPairs = new Set<string>();
+	for (const [personId, partners] of partnerships) {
+		for (const partnerId of partners) {
+			const key = [personId, partnerId].sort().join("+");
+			if (seenPairs.has(key)) continue;
+			seenPairs.add(key);
+
+			const union: Union = {
+				id: key,
+				partners: [personId, partnerId].sort(),
+				children: [],
+			};
+			unions.push(union);
+			unionMap.set(key, union);
+
+			for (const pid of union.partners) {
+				if (!personToUnions.has(pid)) personToUnions.set(pid, []);
+				personToUnions.get(pid)!.push(key);
 			}
 		}
 	}
+
+	// Assign children to unions
+	// A child belongs to the union of their parents. If both parents are in
+	// a union together, the child goes there. Otherwise, create a "single parent" union.
+	const childAssigned = new Set<string>();
+
+	for (const [childId, parentIds] of childToParents) {
+		const parents = [...parentIds];
+
+		if (parents.length >= 2) {
+			// Try to find a union that contains at least two of the parents
+			let assigned = false;
+			for (let i = 0; i < parents.length && !assigned; i++) {
+				for (let j = i + 1; j < parents.length && !assigned; j++) {
+					const key = [parents[i]!, parents[j]!].sort().join("+");
+					const union = unionMap.get(key);
+					if (union) {
+						union.children.push(childId);
+						childAssigned.add(childId);
+						assigned = true;
+					}
+				}
+			}
+
+			// Parents exist but no union between them -- create implicit unions
+			if (!assigned) {
+				// Create a union for the first pair of parents
+				const key = parents.slice(0, 2).sort().join("+");
+				if (!unionMap.has(key)) {
+					const union: Union = {
+						id: key,
+						partners: parents.slice(0, 2).sort(),
+						children: [childId],
+					};
+					unions.push(union);
+					unionMap.set(key, union);
+					for (const pid of union.partners) {
+						if (!personToUnions.has(pid)) personToUnions.set(pid, []);
+						personToUnions.get(pid)!.push(key);
+					}
+				} else {
+					unionMap.get(key)!.children.push(childId);
+				}
+				childAssigned.add(childId);
+			}
+		} else if (parents.length === 1) {
+			// Single known parent -- find or create a single-parent union
+			const parentId = parents[0]!;
+			const existingUnions = personToUnions.get(parentId) ?? [];
+
+			// Try to add to an existing union where this parent has a partner
+			let assigned = false;
+			for (const uid of existingUnions) {
+				const u = unionMap.get(uid)!;
+				if (u.partners.length === 1 || u.partners.includes(parentId)) {
+					u.children.push(childId);
+					childAssigned.add(childId);
+					assigned = true;
+					break;
+				}
+			}
+
+			if (!assigned) {
+				// Create a single-parent union
+				const key = `solo:${parentId}`;
+				if (!unionMap.has(key)) {
+					const union: Union = {
+						id: key,
+						partners: [parentId],
+						children: [childId],
+					};
+					unions.push(union);
+					unionMap.set(key, union);
+					if (!personToUnions.has(parentId))
+						personToUnions.set(parentId, []);
+					personToUnions.get(parentId)!.push(key);
+				} else {
+					unionMap.get(key)!.children.push(childId);
+				}
+				childAssigned.add(childId);
+			}
+		}
+	}
+
+	// Create childless partnership unions for couples who have no kids
+	// (already handled above when building from partnerships)
 
 	// --- Assign generations via BFS from roots ---
 	const generation = new Map<string, number>();
 	const roots = people.filter((p) => !childToParents.has(p.id));
 
-	// Ensure married-in spouses at root level are roots too
+	// Ensure married-in spouses at root level are also roots
 	for (const r of [...roots]) {
-		const sp = spouseOf.get(r.id);
-		if (sp && !roots.find((x) => x.id === sp)) {
-			const spPerson = personMap.get(sp);
-			if (spPerson) roots.push(spPerson);
+		const partners = partnerships.get(r.id);
+		if (partners) {
+			for (const sp of partners) {
+				if (!roots.find((x) => x.id === sp)) {
+					const spPerson = personMap.get(sp);
+					if (spPerson) roots.push(spPerson);
+				}
+			}
 		}
 	}
 
@@ -161,11 +318,15 @@ function buildGraph(
 		const cur = queue.shift()!;
 		const gen = generation.get(cur)!;
 
-		// Spouse gets same generation
-		const sp = spouseOf.get(cur);
-		if (sp && !generation.has(sp)) {
-			generation.set(sp, gen);
-			queue.push(sp);
+		// All partners get same generation
+		const partners = partnerships.get(cur);
+		if (partners) {
+			for (const sp of partners) {
+				if (!generation.has(sp)) {
+					generation.set(sp, gen);
+					queue.push(sp);
+				}
+			}
 		}
 
 		// Children get gen + 1
@@ -183,67 +344,33 @@ function buildGraph(
 		if (!generation.has(p.id)) generation.set(p.id, 0);
 	}
 
-	// --- Build "family units" for layout ---
-	// A family unit = one or two parents + their shared children
-	// We key units by the "primary parent" (blood-relative or first found)
-
-	interface FamilyUnit {
-		parents: string[]; // 1 or 2 person IDs
-		children: string[]; // ordered child IDs
-	}
-
-	const unitByParent = new Map<string, FamilyUnit>();
-	const assignedToUnit = new Set<string>();
-
-	// Deduplicate children: for a couple, children appear under both parents
-	// Merge into a single unit keyed by the first parent
-	for (const [parentId, kids] of parentToChildren) {
-		if (assignedToUnit.has(parentId)) continue;
-
-		const sp = spouseOf.get(parentId);
-		const unitParents = [parentId];
-		if (sp) unitParents.push(sp);
-
-		// Collect all children of this couple (union)
-		const allKids = new Set<string>();
-		for (const pid of unitParents) {
-			for (const kid of parentToChildren.get(pid) ?? []) {
-				allKids.add(kid);
-			}
-		}
-
-		const unit: FamilyUnit = {
-			parents: unitParents,
-			children: [...allKids],
-		};
-
-		unitByParent.set(parentId, unit);
-		for (const pid of unitParents) assignedToUnit.add(pid);
-	}
-
-	// --- Recursive subtree layout ---
+	// --- Layout ---
 	const NODE_WIDTH = 200;
 	const NODE_HEIGHT = 80;
-	const COUPLE_GAP = 20; // gap between spouses
+	const COUPLE_GAP = 40; // horizontal gap between spouses (for the connector line)
 	const SIBLING_GAP = 40; // gap between sibling subtrees
 	const GEN_GAP = 140; // vertical gap between generations
 
 	const positions = new Map<string, { x: number; y: number }>();
 	const laid = new Set<string>();
+	const laidUnions = new Set<string>();
 
 	/**
-	 * Lay out a subtree rooted at a family unit.
-	 * Returns the total width consumed by this subtree.
-	 * `x` is the left edge, `y` is the top of this generation row.
+	 * Lay out a union and its descendant subtrees.
+	 * Returns the total width consumed.
 	 */
-	function layoutUnit(unitParentId: string, x: number, y: number): number {
-		const unit = unitByParent.get(unitParentId);
-		if (!unit) return 0;
+	function layoutUnion(unionId: string, x: number, y: number): number {
+		if (laidUnions.has(unionId)) return 0;
+		laidUnions.add(unionId);
 
-		const parentIds = unit.parents;
-		const childIds = unit.children.filter((id) => !laid.has(id));
+		const union = unionMap.get(unionId);
+		if (!union) return 0;
 
-		// Recursively lay out each child's subtree to compute widths
+		const parentIds = union.partners.filter((id) => !laid.has(id));
+		const allParentIds = union.partners;
+		const childIds = union.children.filter((id) => !laid.has(id));
+
+		// Recursively lay out each child's subtree
 		interface ChildLayout {
 			id: string;
 			width: number;
@@ -254,14 +381,23 @@ function buildGraph(
 		let childX = x;
 
 		for (const childId of childIds) {
-			// Does this child have their own family unit?
-			const childUnit = findUnitForPerson(childId);
-			let width: number;
+			// Find this child's primary union (where they are a parent)
+			const childUnionIds = personToUnions.get(childId) ?? [];
+			let width = NODE_WIDTH;
 
-			if (childUnit && !laid.has(childId)) {
-				width = layoutUnit(childUnit, childX, childY);
-			} else {
-				width = NODE_WIDTH;
+			if (childUnionIds.length > 0) {
+				// Lay out all unions this child participates in
+				// The "primary" union determines position; others extend sideways
+				let totalWidth = 0;
+				for (const cuid of childUnionIds) {
+					if (!laidUnions.has(cuid)) {
+						const w = layoutUnion(cuid, childX + totalWidth, childY);
+						totalWidth += w > 0 ? w + SIBLING_GAP : 0;
+					}
+				}
+				if (totalWidth > 0) {
+					width = totalWidth - SIBLING_GAP;
+				}
 			}
 
 			width = Math.max(width, NODE_WIDTH);
@@ -273,58 +409,61 @@ function buildGraph(
 			childLayouts.reduce((sum, c) => sum + c.width, 0) +
 			Math.max(0, childLayouts.length - 1) * SIBLING_GAP;
 
-		// Parent couple width
+		// Parent cluster width: each parent node + gaps between them
+		const parentCount = allParentIds.length;
 		const coupleWidth =
-			parentIds.length === 2
-				? NODE_WIDTH * 2 + COUPLE_GAP
+			parentCount >= 2
+				? NODE_WIDTH * parentCount +
+					COUPLE_GAP * (parentCount - 1)
 				: NODE_WIDTH;
 
 		const subtreeWidth = Math.max(totalChildrenWidth, coupleWidth);
 
-		// Position children
+		// Position children centered under parents
 		let cx = x + (subtreeWidth - totalChildrenWidth) / 2;
 		for (const cl of childLayouts) {
 			if (!laid.has(cl.id)) {
-				// Center the child node within its allocated width
 				const childNodeX = cx + (cl.width - NODE_WIDTH) / 2;
 				positions.set(cl.id, { x: childNodeX, y: childY });
 				laid.add(cl.id);
 
-				// Also position the child's spouse next to them if they have one
-				const childSp = spouseOf.get(cl.id);
-				if (childSp && !laid.has(childSp)) {
-					// If this child has their own unit, spouse is already positioned
-					// Otherwise, place spouse next to them
-					if (!positions.has(childSp)) {
-						positions.set(childSp, {
-							x: childNodeX + NODE_WIDTH + COUPLE_GAP,
-							y: childY,
-						});
-						laid.add(childSp);
+				// Position any partners of this child who don't have their own unit
+				const childPartners = partnerships.get(cl.id);
+				if (childPartners) {
+					let offset = 1;
+					for (const cp of childPartners) {
+						if (!laid.has(cp)) {
+							positions.set(cp, {
+								x:
+									childNodeX +
+									(NODE_WIDTH + COUPLE_GAP) * offset,
+								y: childY,
+							});
+							laid.add(cp);
+							offset++;
+						}
 					}
 				}
 			}
 			cx += cl.width + SIBLING_GAP;
 		}
 
-		// Position parents centered above children (or above subtree center)
+		// Position parents centered above children
 		const parentY = y;
 		const centerX = x + subtreeWidth / 2;
 
-		if (parentIds.length === 2) {
-			if (!laid.has(parentIds[0]!)) {
-				positions.set(parentIds[0]!, {
-					x: centerX - NODE_WIDTH - COUPLE_GAP / 2,
-					y: parentY,
-				});
-				laid.add(parentIds[0]!);
-			}
-			if (!laid.has(parentIds[1]!)) {
-				positions.set(parentIds[1]!, {
-					x: centerX + COUPLE_GAP / 2,
-					y: parentY,
-				});
-				laid.add(parentIds[1]!);
+		if (parentIds.length >= 2) {
+			// Multiple partners: spread them out from center
+			const totalParentsWidth =
+				parentIds.length * NODE_WIDTH +
+				(parentIds.length - 1) * COUPLE_GAP;
+			let px = centerX - totalParentsWidth / 2;
+			for (const pid of parentIds) {
+				if (!laid.has(pid)) {
+					positions.set(pid, { x: px, y: parentY });
+					laid.add(pid);
+				}
+				px += NODE_WIDTH + COUPLE_GAP;
 			}
 		} else if (parentIds.length === 1 && !laid.has(parentIds[0]!)) {
 			positions.set(parentIds[0]!, {
@@ -337,48 +476,60 @@ function buildGraph(
 		return subtreeWidth;
 	}
 
-	/**
-	 * Find the family unit ID where this person is a parent.
-	 */
-	function findUnitForPerson(personId: string): string | undefined {
-		if (unitByParent.has(personId)) return personId;
-		// Check if they're the spouse in someone else's unit
-		const sp = spouseOf.get(personId);
-		if (sp && unitByParent.has(sp)) return sp;
-		return undefined;
-	}
-
-	// Find the topmost family units (generation 0 parents)
-	const rootUnits: string[] = [];
-	for (const [parentId] of unitByParent) {
-		const gen = generation.get(parentId) ?? 0;
-		if (gen === 0 && !laid.has(parentId)) {
-			rootUnits.push(parentId);
+	// Find root-level unions (generation 0 parents)
+	const rootUnionIds: string[] = [];
+	for (const union of unions) {
+		const gen = Math.min(
+			...union.partners.map((p) => generation.get(p) ?? 0),
+		);
+		if (gen === 0) {
+			rootUnionIds.push(union.id);
 		}
 	}
 
-	// Layout all root units side by side
+	// Deduplicate: if a person appears in multiple root unions, lay them out together
 	let globalX = 0;
-	for (const unitId of rootUnits) {
-		if (laid.has(unitId)) continue;
-		const width = layoutUnit(unitId, globalX, 0);
+	for (const unionId of rootUnionIds) {
+		if (laidUnions.has(unionId)) continue;
+		const width = layoutUnion(unionId, globalX, 0);
 		globalX += width + SIBLING_GAP * 2;
 	}
 
-	// Place anyone still unpositioned (disconnected people, childless couples, etc.)
+	// Lay out any non-root unions that haven't been placed yet
+	for (const union of unions) {
+		if (laidUnions.has(union.id)) continue;
+		const gen = Math.min(
+			...union.partners.map((p) => generation.get(p) ?? 0),
+		);
+		const width = layoutUnion(
+			union.id,
+			globalX,
+			gen * (NODE_HEIGHT + GEN_GAP),
+		);
+		globalX += width + SIBLING_GAP * 2;
+	}
+
+	// Place anyone still unpositioned (disconnected, no unions)
 	for (const p of people) {
 		if (!positions.has(p.id)) {
 			const gen = generation.get(p.id) ?? 0;
-			const sp = spouseOf.get(p.id);
+			const partners = partnerships.get(p.id);
 
-			// Try to place next to spouse if spouse is positioned
-			if (sp && positions.has(sp)) {
-				const spPos = positions.get(sp)!;
-				positions.set(p.id, {
-					x: spPos.x + NODE_WIDTH + COUPLE_GAP,
-					y: spPos.y,
-				});
-			} else {
+			if (partners) {
+				// Try to place next to a positioned partner
+				for (const sp of partners) {
+					if (positions.has(sp)) {
+						const spPos = positions.get(sp)!;
+						positions.set(p.id, {
+							x: spPos.x + NODE_WIDTH + COUPLE_GAP,
+							y: spPos.y,
+						});
+						break;
+					}
+				}
+			}
+
+			if (!positions.has(p.id)) {
 				positions.set(p.id, {
 					x: globalX,
 					y: gen * (NODE_HEIGHT + GEN_GAP),
@@ -409,26 +560,55 @@ function buildGraph(
 
 	for (const rel of relationships) {
 		if (rel.type === "child") continue;
-		// Skip sibling edges — the tree structure implies them
 		if (rel.type === "sibling") continue;
 
 		const edgeId = [rel.personId, rel.relatedId].sort().join("-");
 		if (edgeSet.has(edgeId)) continue;
 		edgeSet.add(edgeId);
 
-		const isSpouseOrPartner = rel.type === "spouse" || rel.type === "partner";
+		const isSpouseOrPartner =
+			rel.type === "spouse" || rel.type === "partner";
 
-		edges.push({
-			id: `edge-${rel.id}`,
-			source: rel.personId,
-			target: rel.relatedId,
-			type: "default",
-			style: {
-				stroke: isSpouseOrPartner ? "#ec4899" : "#6366f1",
-				strokeWidth: isSpouseOrPartner ? 2 : 1.5,
-				strokeDasharray: isSpouseOrPartner ? "5 5" : undefined,
-			},
-		});
+		if (isSpouseOrPartner) {
+			// Determine which handle to use based on relative position
+			const pos1 = positions.get(rel.personId);
+			const pos2 = positions.get(rel.relatedId);
+			let sourceHandle = "right";
+			let targetHandle = "left";
+
+			if (pos1 && pos2 && pos1.x > pos2.x) {
+				sourceHandle = "left";
+				targetHandle = "right";
+			}
+
+			edges.push({
+				id: `edge-${rel.id}`,
+				source: rel.personId,
+				target: rel.relatedId,
+				sourceHandle,
+				targetHandle,
+				type: "straight",
+				style: {
+					stroke: "#ec4899",
+					strokeWidth: 2,
+					strokeDasharray: rel.endedAt ? "5 5" : undefined, // dashed if ended (divorce)
+				},
+			});
+		} else {
+			// Parent-child: vertical edge
+			edges.push({
+				id: `edge-${rel.id}`,
+				source: rel.personId,
+				target: rel.relatedId,
+				sourceHandle: "bottom",
+				targetHandle: "top",
+				type: "default",
+				style: {
+					stroke: "#6366f1",
+					strokeWidth: 1.5,
+				},
+			});
+		}
 	}
 
 	return { nodes, edges };
