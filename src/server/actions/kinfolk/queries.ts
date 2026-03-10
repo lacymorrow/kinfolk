@@ -13,6 +13,7 @@ import {
 	type Address,
 	type Relationship,
 } from "@/server/db/schema";
+import { requireFamilyAccess, requireAuth } from "./auth";
 
 export async function getFamilies() {
 	if (!db) return [];
@@ -130,12 +131,15 @@ export async function getFirstFamily() {
 
 export async function getPersonByUserId(userId: string) {
 	if (!db) return null;
+	await requireAuth();
 	const [person] = await db.select().from(people).where(eq(people.userId, userId));
 	return person ?? null;
 }
 
 export async function getUnlinkedPeople(familyId?: string) {
 	if (!db) return [];
+	await requireAuth();
+	if (familyId) await requireFamilyAccess(familyId);
 	const query = db
 		.select()
 		.from(people)

@@ -66,7 +66,7 @@ export const ProfileClient = ({
 		if (!selectedPersonId) return;
 		setSaving(true);
 		try {
-			await claimProfile(selectedPersonId, userId);
+			await claimProfile(selectedPersonId);
 			router.refresh();
 		} finally {
 			setSaving(false);

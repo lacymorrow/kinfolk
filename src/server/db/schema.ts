@@ -24,6 +24,7 @@
 import { relations, sql } from "drizzle-orm";
 import {
 	boolean,
+	date,
 	index,
 	integer,
 	pgEnum,
@@ -706,8 +707,8 @@ export const people = createTable("person", {
 	lastName: text("last_name").notNull(),
 	maidenName: text("maiden_name"),
 	nickname: text("nickname"),
-	birthdate: text("birthdate"), // stored as ISO string for simplicity
-	deathdate: text("deathdate"),
+	birthdate: date("birthdate", { mode: "string" }),
+	deathdate: date("deathdate", { mode: "string" }),
 	gender: text("gender"),
 	bio: text("bio"),
 	avatarUrl: text("avatar_url"),
@@ -787,7 +788,7 @@ export const kinfolkEvents = createTable("kinfolk_event", {
 	type: text("type").notNull(), // 'birth', 'marriage', 'graduation', 'death', 'reunion', 'move', 'custom'
 	title: text("title").notNull(),
 	description: text("description"),
-	date: text("date"), // ISO string
+	date: date("date", { mode: "string" }),
 	location: text("location"),
 	createdBy: varchar("created_by", { length: 255 }).references(() => users.id),
 	createdAt: timestamp("created_at", { withTimezone: true }).default(sql`CURRENT_TIMESTAMP`).notNull(),
@@ -807,7 +808,7 @@ export const photos = createTable("kinfolk_photo", {
 	url: text("url").notNull(),
 	thumbnailUrl: text("thumbnail_url"),
 	caption: text("caption"),
-	takenAt: text("taken_at"), // ISO string
+	takenAt: date("taken_at", { mode: "string" }),
 	createdAt: timestamp("created_at", { withTimezone: true }).default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
