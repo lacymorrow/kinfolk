@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getEventWithPeople } from "@/server/actions/kinfolk/events";
 import { getPhotosByEvent } from "@/server/actions/kinfolk/photos";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EVENT_TYPE_COLORS } from "@/lib/kinfolk/event-types";
 import { Badge } from "@/components/ui/badge";
 import { EventActions } from "./event-actions";
 
@@ -15,15 +16,7 @@ export default async function EventDetailPage({
 
 	const eventPhotos = await getPhotosByEvent(id);
 
-	const typeColors: Record<string, string> = {
-		birth: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-		marriage: "bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200",
-		graduation: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-		death: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
-		reunion: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
-		move: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
-		custom: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
-	};
+
 
 	return (
 		<div className="mx-auto max-w-4xl p-4 sm:p-6 lg:p-8">
@@ -34,7 +27,7 @@ export default async function EventDetailPage({
 			<div className="mb-6 flex items-start justify-between">
 				<div>
 					<div className="mb-2 flex items-center gap-2">
-						<Badge className={typeColors[event.type] ?? typeColors.custom} variant="secondary">
+						<Badge className={EVENT_TYPE_COLORS[event.type] ?? EVENT_TYPE_COLORS.custom} variant="secondary">
 							{event.type}
 						</Badge>
 						{event.date && (

@@ -14,15 +14,14 @@ import {
 } from "@/components/ui/dialog";
 import { Lightbox } from "@/components/kinfolk/lightbox";
 import { createPhoto } from "@/server/actions/kinfolk/photos";
-import type { Photo, Person } from "@/server/db/schema";
+import type { Photo } from "@/server/db/schema";
 
 interface PhotosClientProps {
 	photos: Photo[];
 	familyId: string;
-	people: Person[];
 }
 
-export const PhotosClient = ({ photos, familyId, people }: PhotosClientProps) => {
+export const PhotosClient = ({ photos, familyId }: PhotosClientProps) => {
 	const router = useRouter();
 	const [open, setOpen] = useState(false);
 	const [saving, setSaving] = useState(false);

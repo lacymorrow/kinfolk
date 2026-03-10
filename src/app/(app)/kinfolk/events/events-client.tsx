@@ -37,15 +37,7 @@ const EVENT_TYPES = [
 	{ value: "custom", label: "Custom" },
 ];
 
-const typeColors: Record<string, string> = {
-	birth: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-	marriage: "bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200",
-	graduation: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-	death: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
-	reunion: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
-	move: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
-	custom: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
-};
+import { EVENT_TYPE_COLORS } from "@/lib/kinfolk/event-types";
 
 interface EventsClientProps {
 	events: KinfolkEvent[];
@@ -173,7 +165,7 @@ export const EventsClient = ({ events, familyId }: EventsClientProps) => {
 								<Card className="transition-colors hover:bg-muted/50">
 									<CardContent className="p-4">
 										<div className="mb-1 flex items-center gap-2">
-											<Badge className={typeColors[event.type] ?? typeColors.custom} variant="secondary">
+											<Badge className={EVENT_TYPE_COLORS[event.type] ?? EVENT_TYPE_COLORS.custom} variant="secondary">
 												{event.type}
 											</Badge>
 											{event.date && (
