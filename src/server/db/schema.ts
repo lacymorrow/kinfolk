@@ -777,6 +777,88 @@ export const relationshipsRelations = relations(relationships, ({ one }) => ({
 	related: one(people, { fields: [relationships.relatedId], references: [people.id], relationName: "relatedRelationships" }),
 }));
 
+// =============================================================================
+// KINFOLK Phase 2 — Events, Photos, Posts
+// =============================================================================
+
+export const kinfolkEvents = createTable("kinfolk_event", {
+	id: varchar("id", { length: 255 }).primaryKey().$defaultFn(() => crypto.randomUUID()),
+	familyId: varchar("family_id", { length: 255 }).references(() => families.id, { onDelete: "cascade" }),
+	type: text("type").notNull(), // 'birth', 'marriage', 'graduation', 'death', 'reunion', 'move', 'custom'
+	title: text("title").notNull(),
+	description: text("description"),
+	date: text("date"), // ISO string
+	location: text("location"),
+	createdBy: varchar("created_by", { length: 255 }).references(() => users.id),
+	createdAt: timestamp("created_at", { withTimezone: true }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export const eventPeople = createTable("event_person", {
+	id: varchar("id", { length: 255 }).primaryKey().$defaultFn(() => crypto.randomUUID()),
+	eventId: varchar("event_id", { length: 255 }).references(() => kinfolkEvents.id, { onDelete: "cascade" }).notNull(),
+	personId: varchar("person_id", { length: 255 }).references(() => people.id, { onDelete: "cascade" }).notNull(),
+	role: text("role").notNull(), // 'subject', 'attendee', 'host'
+});
+
+export const photos = createTable("kinfolk_photo", {
+	id: varchar("id", { length: 255 }).primaryKey().$defaultFn(() => crypto.randomUUID()),
+	familyId: varchar("family_id", { length: 255 }).references(() => families.id, { onDelete: "cascade" }),
+	uploadedBy: varchar("uploaded_by", { length: 255 }).references(() => users.id),
+	url: text("url").notNull(),
+	thumbnailUrl: text("thumbnail_url"),
+	caption: text("caption"),
+	takenAt: text("taken_at"), // ISO string
+	createdAt: timestamp("created_at", { withTimezone: true }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export const photoTags = createTable("kinfolk_photo_tag", {
+	id: varchar("id", { length: 255 }).primaryKey().$defaultFn(() => crypto.randomUUID()),
+	photoId: varchar("photo_id", { length: 255 }).references(() => photos.id, { onDelete: "cascade" }).notNull(),
+	personId: varchar("person_id", { length: 255 }).references(() => people.id, { onDelete: "cascade" }),
+	eventId: varchar("event_id", { length: 255 }).references(() => kinfolkEvents.id, { onDelete: "cascade" }),
+});
+
+export const kinfolkPosts = createTable("kinfolk_post", {
+	id: varchar("id", { length: 255 }).primaryKey().$defaultFn(() => crypto.randomUUID()),
+	familyId: varchar("family_id", { length: 255 }).references(() => families.id, { onDelete: "cascade" }),
+	authorId: varchar("author_id", { length: 255 }).references(() => users.id),
+	title: text("title"),
+	body: text("body").notNull(),
+	pinned: boolean("pinned").default(false),
+	createdAt: timestamp("created_at", { withTimezone: true }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+// Phase 2 relations
+export const kinfolkEventsRelations = relations(kinfolkEvents, ({ one, many }) => ({
+	family: one(families, { fields: [kinfolkEvents.familyId], references: [families.id] }),
+	createdByUser: one(users, { fields: [kinfolkEvents.createdBy], references: [users.id] }),
+	eventPeople: many(eventPeople),
+	photoTags: many(photoTags),
+}));
+
+export const eventPeopleRelations = relations(eventPeople, ({ one }) => ({
+	event: one(kinfolkEvents, { fields: [eventPeople.eventId], references: [kinfolkEvents.id] }),
+	person: one(people, { fields: [eventPeople.personId], references: [people.id] }),
+}));
+
+export const photosRelations = relations(photos, ({ one, many }) => ({
+	family: one(families, { fields: [photos.familyId], references: [families.id] }),
+	uploadedByUser: one(users, { fields: [photos.uploadedBy], references: [users.id] }),
+	tags: many(photoTags),
+}));
+
+export const photoTagsRelations = relations(photoTags, ({ one }) => ({
+	photo: one(photos, { fields: [photoTags.photoId], references: [photos.id] }),
+	person: one(people, { fields: [photoTags.personId], references: [people.id] }),
+	event: one(kinfolkEvents, { fields: [photoTags.eventId], references: [kinfolkEvents.id] }),
+}));
+
+export const kinfolkPostsRelations = relations(kinfolkPosts, ({ one }) => ({
+	family: one(families, { fields: [kinfolkPosts.familyId], references: [families.id] }),
+	author: one(users, { fields: [kinfolkPosts.authorId], references: [users.id] }),
+}));
+
 // Type exports
 export type Family = typeof families.$inferSelect;
 export type NewFamily = typeof families.$inferInsert;
@@ -788,3 +870,13 @@ export type Address = typeof addresses.$inferSelect;
 export type NewAddress = typeof addresses.$inferInsert;
 export type Relationship = typeof relationships.$inferSelect;
 export type NewRelationship = typeof relationships.$inferInsert;
+export type KinfolkEvent = typeof kinfolkEvents.$inferSelect;
+export type NewKinfolkEvent = typeof kinfolkEvents.$inferInsert;
+export type EventPerson = typeof eventPeople.$inferSelect;
+export type NewEventPerson = typeof eventPeople.$inferInsert;
+export type Photo = typeof photos.$inferSelect;
+export type NewPhoto = typeof photos.$inferInsert;
+export type PhotoTag = typeof photoTags.$inferSelect;
+export type NewPhotoTag = typeof photoTags.$inferInsert;
+export type KinfolkPost = typeof kinfolkPosts.$inferSelect;
+export type NewKinfolkPost = typeof kinfolkPosts.$inferInsert;

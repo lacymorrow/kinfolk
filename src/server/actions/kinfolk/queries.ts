@@ -1,6 +1,6 @@
 "use server";
 
-import { eq, ilike, or, sql, count, desc, asc } from "drizzle-orm";
+import { eq, ilike, or, and, sql, count, desc, asc } from "drizzle-orm";
 import { db } from "@/server/db";
 import {
 	families,
@@ -126,4 +126,24 @@ export async function getFirstFamily() {
 	if (!db) return null;
 	const [family] = await db.select().from(families).limit(1);
 	return family ?? null;
+}
+
+export async function getPersonByUserId(userId: string) {
+	if (!db) return null;
+	const [person] = await db.select().from(people).where(eq(people.userId, userId));
+	return person ?? null;
+}
+
+export async function getUnlinkedPeople(familyId?: string) {
+	if (!db) return [];
+	const query = db
+		.select()
+		.from(people)
+		.where(
+			familyId
+				? and(eq(people.familyId, familyId), sql`${people.userId} IS NULL`)
+				: sql`${people.userId} IS NULL`,
+		)
+		.orderBy(asc(people.lastName), asc(people.firstName));
+	return query;
 }

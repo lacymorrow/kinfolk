@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
 	Select,
 	SelectContent,
@@ -10,6 +11,8 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import { exportVCard, exportCSV } from "@/server/actions/kinfolk/export";
+import { useRealtimeSubscription, KINFOLK_TABLES } from "@/hooks/use-realtime";
 import type { Person, Address } from "@/server/db/schema";
 
 interface PersonWithAddress {
@@ -19,12 +22,46 @@ interface PersonWithAddress {
 
 interface DirectoryClientProps {
 	people: PersonWithAddress[];
+	familyId: string;
 }
 
-export const DirectoryClient = ({ people }: DirectoryClientProps) => {
+export const DirectoryClient = ({ people, familyId }: DirectoryClientProps) => {
+	useRealtimeSubscription([KINFOLK_TABLES.person]);
+
 	const [search, setSearch] = useState("");
 	const [sortBy, setSortBy] = useState<"name" | "age">("name");
 	const [filterLastName, setFilterLastName] = useState<string>("all");
+	const [exporting, setExporting] = useState(false);
+
+	const downloadFile = (content: string, filename: string, mime: string) => {
+		const blob = new Blob([content], { type: mime });
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement("a");
+		a.href = url;
+		a.download = filename;
+		a.click();
+		URL.revokeObjectURL(url);
+	};
+
+	const handleExportVCard = async () => {
+		setExporting(true);
+		try {
+			const vcf = await exportVCard(familyId);
+			downloadFile(vcf, "kinfolk-family.vcf", "text/vcard");
+		} finally {
+			setExporting(false);
+		}
+	};
+
+	const handleExportCSV = async () => {
+		setExporting(true);
+		try {
+			const csv = await exportCSV(familyId);
+			downloadFile(csv, "kinfolk-family.csv", "text/csv");
+		} finally {
+			setExporting(false);
+		}
+	};
 
 	const lastNames = useMemo(() => {
 		const names = new Set(people.map((p) => p.person.lastName));
@@ -67,11 +104,21 @@ export const DirectoryClient = ({ people }: DirectoryClientProps) => {
 
 	return (
 		<div className="mx-auto max-w-7xl p-4 sm:p-6 lg:p-8">
-			<div className="mb-6">
-				<h1 className="text-3xl font-bold tracking-tight">Family Directory</h1>
-				<p className="mt-1 text-muted-foreground">
-					{people.length} family members
-				</p>
+			<div className="mb-6 flex items-start justify-between">
+				<div>
+					<h1 className="text-3xl font-bold tracking-tight">Family Directory</h1>
+					<p className="mt-1 text-muted-foreground">
+						{people.length} family members
+					</p>
+				</div>
+				<div className="flex gap-2">
+					<Button variant="outline" size="sm" onClick={handleExportVCard} disabled={exporting}>
+						Export vCard
+					</Button>
+					<Button variant="outline" size="sm" onClick={handleExportCSV} disabled={exporting}>
+						Export CSV
+					</Button>
+				</div>
 			</div>
 
 			<div className="mb-6 flex flex-col gap-3 sm:flex-row">

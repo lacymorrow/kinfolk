@@ -1,15 +1,30 @@
 import Link from "next/link";
 import { type ReactNode } from "react";
+import { ServiceWorkerRegistrar } from "./sw-registrar";
+
+export const metadata = {
+	manifest: "/manifest.json",
+	themeColor: "#0f172a",
+	appleWebApp: {
+		capable: true,
+		statusBarStyle: "default" as const,
+		title: "Kinfolk",
+	},
+};
 
 const navItems = [
-	{ href: "/kinfolk/tree", label: "Family Tree" },
 	{ href: "/kinfolk/directory", label: "Directory" },
-	{ href: "/kinfolk/admin/family", label: "Manage" },
+	{ href: "/kinfolk/tree", label: "Tree" },
+	{ href: "/kinfolk/events", label: "Events" },
+	{ href: "/kinfolk/photos", label: "Photos" },
+	{ href: "/kinfolk/feed", label: "Feed" },
+	{ href: "/kinfolk/profile", label: "Profile" },
 ];
 
 export default function KinfolkLayout({ children }: { children: ReactNode }) {
 	return (
 		<div className="min-h-screen">
+			<ServiceWorkerRegistrar />
 			<header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
 				<div className="mx-auto flex h-14 max-w-7xl items-center gap-6 px-4">
 					<Link href="/kinfolk/directory" className="text-lg font-bold tracking-tight">
