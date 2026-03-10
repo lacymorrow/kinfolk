@@ -292,8 +292,13 @@ function buildGraph(
 
 	for (const rel of relationships) {
 		if (rel.type === "parent") {
+			// personId is the parent, relatedId is the child
 			getOrCreate(childToParents, rel.relatedId).add(rel.personId);
 			getOrCreate(parentToChildren, rel.personId).add(rel.relatedId);
+		} else if (rel.type === "child") {
+			// personId is the child, relatedId is the parent (inverse row)
+			getOrCreate(childToParents, rel.personId).add(rel.relatedId);
+			getOrCreate(parentToChildren, rel.relatedId).add(rel.personId);
 		}
 		if (rel.type === "spouse" || rel.type === "partner") {
 			getOrCreate(partnerships, rel.personId).add(rel.relatedId);
