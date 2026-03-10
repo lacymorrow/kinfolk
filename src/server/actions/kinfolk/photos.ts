@@ -1,19 +1,20 @@
 "use server";
 
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/server/db";
 import {
 	photos,
 	photoTags,
 	people,
-	kinfolkEvents,
 	type NewPhoto,
 	type NewPhotoTag,
 } from "@/server/db/schema";
+import { requireFamilyAccess, requireAuth } from "./auth";
 
 export async function getPhotos(familyId: string) {
 	if (!db) return [];
+	await requireFamilyAccess(familyId);
 	return db
 		.select()
 		.from(photos)
@@ -23,6 +24,7 @@ export async function getPhotos(familyId: string) {
 
 export async function getPhotosByPerson(personId: string) {
 	if (!db) return [];
+	await requireAuth();
 	const tags = await db
 		.select({ photo: photos })
 		.from(photoTags)
@@ -34,6 +36,7 @@ export async function getPhotosByPerson(personId: string) {
 
 export async function getPhotosByEvent(eventId: string) {
 	if (!db) return [];
+	await requireAuth();
 	const tags = await db
 		.select({ photo: photos })
 		.from(photoTags)
@@ -45,6 +48,7 @@ export async function getPhotosByEvent(eventId: string) {
 
 export async function getPhotoWithTags(id: string) {
 	if (!db) return null;
+	await requireAuth();
 	const [photo] = await db.select().from(photos).where(eq(photos.id, id));
 	if (!photo) return null;
 
@@ -62,6 +66,7 @@ export async function getPhotoWithTags(id: string) {
 
 export async function createPhoto(data: Omit<NewPhoto, "id" | "createdAt">) {
 	if (!db) throw new Error("Database not available");
+	await requireFamilyAccess(data.familyId);
 	const [photo] = await db.insert(photos).values(data).returning();
 	revalidatePath("/kinfolk/photos");
 	return photo;
@@ -69,12 +74,18 @@ export async function createPhoto(data: Omit<NewPhoto, "id" | "createdAt">) {
 
 export async function deletePhoto(id: string) {
 	if (!db) throw new Error("Database not available");
+	await requireAuth();
+	// Verify the photo exists and user has access
+	const [photo] = await db.select().from(photos).where(eq(photos.id, id));
+	if (!photo) throw new Error("Photo not found");
+	await requireFamilyAccess(photo.familyId);
 	await db.delete(photos).where(eq(photos.id, id));
 	revalidatePath("/kinfolk/photos");
 }
 
 export async function addPhotoTag(data: Omit<NewPhotoTag, "id">) {
 	if (!db) throw new Error("Database not available");
+	await requireAuth();
 	const [tag] = await db.insert(photoTags).values(data).returning();
 	revalidatePath("/kinfolk/photos");
 	return tag;
@@ -82,6 +93,7 @@ export async function addPhotoTag(data: Omit<NewPhotoTag, "id">) {
 
 export async function removePhotoTag(id: string) {
 	if (!db) throw new Error("Database not available");
+	await requireAuth();
 	await db.delete(photoTags).where(eq(photoTags.id, id));
 	revalidatePath("/kinfolk/photos");
 }

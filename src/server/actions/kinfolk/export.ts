@@ -1,8 +1,9 @@
 "use server";
 
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, inArray } from "drizzle-orm";
 import { db } from "@/server/db";
-import { people, contacts, addresses, families } from "@/server/db/schema";
+import { people, contacts, addresses } from "@/server/db/schema";
+import { requireFamilyAccess } from "./auth";
 
 interface ExportPerson {
 	firstName: string;
@@ -24,24 +25,48 @@ interface ExportPerson {
 async function getExportData(familyId: string): Promise<ExportPerson[]> {
 	if (!db) return [];
 
+	// Auth check
+	await requireFamilyAccess(familyId);
+
 	const rows = await db
 		.select()
 		.from(people)
 		.where(eq(people.familyId, familyId))
 		.orderBy(asc(people.lastName), asc(people.firstName));
 
-	const result: ExportPerson[] = [];
+	if (rows.length === 0) return [];
 
-	for (const person of rows) {
-		const personContacts = await db
-			.select()
-			.from(contacts)
-			.where(eq(contacts.personId, person.id));
+	// Batch-fetch all contacts and addresses for this family (fixes N+1)
+	const personIds = rows.map((p) => p.id);
 
-		const personAddresses = await db
-			.select()
-			.from(addresses)
-			.where(eq(addresses.personId, person.id));
+	const allContacts = await db
+		.select()
+		.from(contacts)
+		.where(inArray(contacts.personId, personIds));
+
+	const allAddresses = await db
+		.select()
+		.from(addresses)
+		.where(inArray(addresses.personId, personIds));
+
+	// Index by personId
+	const contactsByPerson = new Map<string, typeof allContacts>();
+	for (const c of allContacts) {
+		const list = contactsByPerson.get(c.personId) ?? [];
+		list.push(c);
+		contactsByPerson.set(c.personId, list);
+	}
+
+	const addressesByPerson = new Map<string, typeof allAddresses>();
+	for (const a of allAddresses) {
+		const list = addressesByPerson.get(a.personId) ?? [];
+		list.push(a);
+		addressesByPerson.set(a.personId, list);
+	}
+
+	return rows.map((person) => {
+		const personContacts = contactsByPerson.get(person.id) ?? [];
+		const personAddresses = addressesByPerson.get(person.id) ?? [];
 
 		const primaryEmail =
 			personContacts.find((c) => c.type === "email" && c.isPrimary) ??
@@ -52,7 +77,7 @@ async function getExportData(familyId: string): Promise<ExportPerson[]> {
 		const primaryAddress =
 			personAddresses.find((a) => a.isPrimary) ?? personAddresses[0];
 
-		result.push({
+		return {
 			firstName: person.firstName,
 			lastName: person.lastName,
 			middleName: person.middleName,
@@ -67,10 +92,8 @@ async function getExportData(familyId: string): Promise<ExportPerson[]> {
 			state: primaryAddress?.state ?? null,
 			zip: primaryAddress?.zip ?? null,
 			country: primaryAddress?.country ?? null,
-		});
-	}
-
-	return result;
+		};
+	});
 }
 
 function escapeVCardValue(value: string): string {
@@ -109,7 +132,6 @@ export async function exportVCard(familyId: string): Promise<string> {
 		}
 
 		if (p.birthdate) {
-			// vCard BDAY expects YYYY-MM-DD or YYYYMMDD
 			lines.push(`BDAY:${p.birthdate.replace(/-/g, "")}`);
 		}
 
@@ -137,7 +159,6 @@ export async function exportCSV(familyId: string): Promise<string> {
 			.join(" ");
 		const addressParts = [p.street1, p.street2, p.city, p.state, p.zip, p.country].filter(Boolean);
 		const address = addressParts.join(", ");
-		// relationship column is empty since it varies per person context
 		return [
 			escapeCsvField(name),
 			escapeCsvField(p.email ?? ""),

@@ -26,7 +26,7 @@ if (!DATABASE_URL) {
 }
 
 const client = postgres(DATABASE_URL, {
-	ssl: { rejectUnauthorized: false },
+	ssl: DATABASE_URL.includes("localhost") ? false : "require",
 });
 const db = drizzle(client, { schema });
 
@@ -206,9 +206,7 @@ async function main() {
 	if (taylor) {
 		// Paul & Penny → Taylor (parent)
 		await ensureRelationship(paul.id, taylor.id, "parent");
-		await ensureRelationship(taylor.id, paul.id, "child");
 		await ensureRelationship(penny.id, taylor.id, "parent");
-		await ensureRelationship(taylor.id, penny.id, "child");
 		console.log("  ✓ Paul & Penny → parent of Taylor");
 	} else {
 		console.log("  ⚠ Taylor Morrow not found in DB");
@@ -217,9 +215,7 @@ async function main() {
 	if (lucas) {
 		// Paul & Penny → Lucas (parent)
 		await ensureRelationship(paul.id, lucas.id, "parent");
-		await ensureRelationship(lucas.id, paul.id, "child");
 		await ensureRelationship(penny.id, lucas.id, "parent");
-		await ensureRelationship(lucas.id, penny.id, "child");
 		console.log("  ✓ Paul & Penny → parent of Lucas");
 	} else {
 		console.log("  ⚠ Lucas Morrow not found in DB");
@@ -240,17 +236,13 @@ async function main() {
 
 	// Lynn & Billy → Shannon
 	await ensureRelationship(lynn.id, shannon.id, "parent");
-	await ensureRelationship(shannon.id, lynn.id, "child");
 	await ensureRelationship(billy.id, shannon.id, "parent");
-	await ensureRelationship(shannon.id, billy.id, "child");
 	console.log("  ✓ Lynn & Billy → parent of Shannon");
 
 	if (kristie) {
 		// Lynn & Billy → Christie (Kristie Parker)
 		await ensureRelationship(lynn.id, kristie.id, "parent");
-		await ensureRelationship(kristie.id, lynn.id, "child");
 		await ensureRelationship(billy.id, kristie.id, "parent");
-		await ensureRelationship(kristie.id, billy.id, "child");
 		console.log("  ✓ Lynn & Billy → parent of Christie (Kristie Parker)");
 
 		// Shannon & Christie = siblings
@@ -270,9 +262,7 @@ async function main() {
 	if (lacyL) {
 		// Alice & Jim → Lacy (Lawrence)
 		await ensureRelationship(alice.id, lacyL.id, "parent");
-		await ensureRelationship(lacyL.id, alice.id, "child");
 		await ensureRelationship(jim.id, lacyL.id, "parent");
-		await ensureRelationship(lacyL.id, jim.id, "child");
 		console.log("  ✓ Alice & Jim → parent of Lacy (Lawrence)");
 	} else {
 		console.log("  ⚠ Lacy Lawrence not found in DB");
@@ -281,9 +271,7 @@ async function main() {
 	if (liza) {
 		// Alice & Jim → Liza (Stevens)
 		await ensureRelationship(alice.id, liza.id, "parent");
-		await ensureRelationship(liza.id, alice.id, "child");
 		await ensureRelationship(jim.id, liza.id, "parent");
-		await ensureRelationship(liza.id, jim.id, "child");
 		console.log("  ✓ Alice & Jim → parent of Liza (Stevens)");
 	} else {
 		console.log("  ⚠ Liza Stevens not found in DB");

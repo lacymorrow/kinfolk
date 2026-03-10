@@ -39,7 +39,11 @@ export default async function EventDetailPage({
 						</Badge>
 						{event.date && (
 							<span className="text-sm text-muted-foreground">
-								{new Date(event.date).toLocaleDateString()}
+								{new Date(event.date).toLocaleDateString("en-US", {
+									year: "numeric",
+									month: "long",
+									day: "numeric",
+								})}
 							</span>
 						)}
 					</div>
