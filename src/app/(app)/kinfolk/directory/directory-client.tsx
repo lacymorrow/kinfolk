@@ -14,6 +14,8 @@ import {
 import { exportVCard, exportCSV } from "@/server/actions/kinfolk/export";
 import { useRealtimeSubscription, KINFOLK_TABLES } from "@/hooks/use-realtime";
 import type { Person, Address } from "@/server/db/schema";
+import { AddPersonDialog } from "@/components/kinfolk/add-person-dialog";
+import { UserPlus } from "lucide-react";
 
 interface PersonWithAddress {
 	person: Person;
@@ -27,6 +29,9 @@ interface DirectoryClientProps {
 
 export const DirectoryClient = ({ people, familyId }: DirectoryClientProps) => {
 	useRealtimeSubscription([KINFOLK_TABLES.person]);
+
+	const [addOpen, setAddOpen] = useState(false);
+	const allPeople = useMemo(() => people.map((p) => p.person), [people]);
 
 	const [search, setSearch] = useState("");
 	const [sortBy, setSortBy] = useState<"name" | "age">("name");
@@ -118,7 +123,17 @@ export const DirectoryClient = ({ people, familyId }: DirectoryClientProps) => {
 					<Button variant="outline" size="sm" onClick={handleExportCSV} disabled={exporting}>
 						Export CSV
 					</Button>
+					<Button size="sm" onClick={() => setAddOpen(true)}>
+						<UserPlus className="mr-1.5 h-4 w-4" />
+						Add Person
+					</Button>
 				</div>
+				<AddPersonDialog
+					open={addOpen}
+					onOpenChange={setAddOpen}
+					familyId={familyId}
+					allPeople={allPeople}
+				/>
 			</div>
 
 			<div className="mb-6 flex flex-col gap-3 sm:flex-row">

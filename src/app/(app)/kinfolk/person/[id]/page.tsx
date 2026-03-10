@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getPersonWithDetails } from "@/server/actions/kinfolk/queries";
+import { getPersonWithDetails, getFirstFamily, getPeople } from "@/server/actions/kinfolk/queries";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AddRelationshipButtons } from "@/components/kinfolk/add-relationship-buttons";
+import type { Person } from "@/server/db/schema";
 
 export default async function PersonPage({
 	params,
@@ -17,6 +19,11 @@ export default async function PersonPage({
 	const age = person.birthdate ? calculateAge(person.birthdate, person.deathdate) : null;
 
 	const primaryAddress = person.addresses.find((a) => a.isPrimary) ?? person.addresses[0];
+
+	// Fetch family + all people for the add-person dialog
+	const family = await getFirstFamily();
+	const allPeopleRows = family ? await getPeople(family.id) : [];
+	const allPeople = allPeopleRows.map((row) => row.person as Person);
 
 	// Group relationships by type
 	// type="child" means "this person is a child of relatedPerson" → relatedPerson is a parent
@@ -153,16 +160,25 @@ export default async function PersonPage({
 
 				{/* Relationships */}
 				<Card className="md:col-span-2">
-					<CardHeader>
+					<CardHeader className="flex flex-row items-center justify-between">
 						<CardTitle>Family</CardTitle>
 					</CardHeader>
-					<CardContent>
+					<CardContent className="space-y-4">
 						<div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
 							<RelationshipGroup title="Parents" relationships={parents} />
 							<RelationshipGroup title="Spouse / Partner" relationships={spouses} />
 							<RelationshipGroup title="Siblings" relationships={siblings} />
 							<RelationshipGroup title="Children" relationships={children} />
 						</div>
+						{family && (
+							<div className="border-t pt-4">
+								<AddRelationshipButtons
+									person={person as unknown as Person}
+									familyId={family.id}
+									allPeople={allPeople}
+								/>
+							</div>
+						)}
 					</CardContent>
 				</Card>
 			</div>
