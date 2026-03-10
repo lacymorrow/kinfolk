@@ -9,7 +9,8 @@ import { people } from "@/server/db/schema";
  * Verify that the current user is authenticated and belongs to the given family.
  * Returns the session user ID on success, throws on failure.
  */
-export async function requireFamilyAccess(familyId: string): Promise<string> {
+export async function requireFamilyAccess(familyId: string | null | undefined): Promise<string> {
+	if (!familyId) throw new Error("Family ID required");
 	const session = await auth();
 	if (!session?.user?.id) throw new Error("Unauthorized");
 

@@ -12,6 +12,7 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from "@/components/ui/dialog";
+import { Lightbox } from "@/components/kinfolk/lightbox";
 import { createPhoto } from "@/server/actions/kinfolk/photos";
 import type { Photo, Person } from "@/server/db/schema";
 
@@ -109,64 +110,12 @@ export const PhotosClient = ({ photos, familyId, people }: PhotosClientProps) =>
 
 			{/* Lightbox */}
 			{lightbox !== null && (
-				<div
-					className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
-					onClick={() => setLightbox(null)}
-					onKeyDown={(e) => {
-						if (e.key === "Escape") setLightbox(null);
-						if (e.key === "ArrowRight" && lightbox < photos.length - 1) setLightbox(lightbox + 1);
-						if (e.key === "ArrowLeft" && lightbox > 0) setLightbox(lightbox - 1);
-					}}
-					tabIndex={0}
-					role="dialog"
-				>
-					<button
-						className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-white/20 p-2 text-white hover:bg-white/40 disabled:opacity-30"
-						disabled={lightbox === 0}
-						onClick={(e) => {
-							e.stopPropagation();
-							setLightbox(lightbox - 1);
-						}}
-					>
-						&#8592;
-					</button>
-					<div className="max-h-[90vh] max-w-[90vw]" onClick={(e) => e.stopPropagation()}>
-						{(() => {
-							const photo = photos[lightbox];
-							if (!photo) return null;
-							return (
-								<>
-									<img
-										src={photo.url}
-										alt={photo.caption ?? "Photo"}
-										className="max-h-[85vh] max-w-full rounded-lg object-contain"
-									/>
-									{photo.caption && (
-										<p className="mt-2 text-center text-sm text-white">
-											{photo.caption}
-										</p>
-									)}
-								</>
-							);
-						})()}
-					</div>
-					<button
-						className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-white/20 p-2 text-white hover:bg-white/40 disabled:opacity-30"
-						disabled={lightbox === photos.length - 1}
-						onClick={(e) => {
-							e.stopPropagation();
-							setLightbox(lightbox + 1);
-						}}
-					>
-						&#8594;
-					</button>
-					<button
-						className="absolute right-4 top-4 rounded-full bg-white/20 p-2 text-white hover:bg-white/40"
-						onClick={() => setLightbox(null)}
-					>
-						&#10005;
-					</button>
-				</div>
+				<Lightbox
+					photos={photos}
+					index={lightbox}
+					onClose={() => setLightbox(null)}
+					onChange={setLightbox}
+				/>
 			)}
 		</div>
 	);

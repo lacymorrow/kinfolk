@@ -9,6 +9,17 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+	AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { createPost, deletePost, togglePinPost } from "@/server/actions/kinfolk/posts";
 import { useRealtimeSubscription, KINFOLK_TABLES } from "@/hooks/use-realtime";
 import type { KinfolkPost } from "@/server/db/schema";
@@ -52,7 +63,6 @@ export const FeedClient = ({ posts, familyId }: FeedClientProps) => {
 	};
 
 	const handleDelete = async (id: string) => {
-		if (!confirm("Delete this post?")) return;
 		await deletePost(id);
 		router.refresh();
 	};
@@ -111,9 +121,25 @@ export const FeedClient = ({ posts, familyId }: FeedClientProps) => {
 										<Button variant="ghost" size="sm" onClick={() => handlePin(post.id)}>
 											{post.pinned ? "Unpin" : "Pin"}
 										</Button>
-										<Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDelete(post.id)}>
-											Delete
-										</Button>
+										<AlertDialog>
+											<AlertDialogTrigger asChild>
+												<Button variant="ghost" size="sm" className="text-destructive">
+													Delete
+												</Button>
+											</AlertDialogTrigger>
+											<AlertDialogContent>
+												<AlertDialogHeader>
+													<AlertDialogTitle>Delete post?</AlertDialogTitle>
+													<AlertDialogDescription>
+														This action cannot be undone. This will permanently delete this post.
+													</AlertDialogDescription>
+												</AlertDialogHeader>
+												<AlertDialogFooter>
+													<AlertDialogCancel>Cancel</AlertDialogCancel>
+													<AlertDialogAction onClick={() => handleDelete(post.id)}>Delete</AlertDialogAction>
+												</AlertDialogFooter>
+											</AlertDialogContent>
+										</AlertDialog>
 									</div>
 								</div>
 								{post.title && (
