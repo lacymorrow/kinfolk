@@ -173,7 +173,7 @@ export default async function PersonPage({
 						{family && (
 							<div className="border-t pt-4">
 								<AddRelationshipButtons
-									person={person as unknown as Person}
+									person={person}
 									familyId={family.id}
 									allPeople={allPeople}
 								/>
