@@ -15,22 +15,11 @@
  */
 
 import { eq, and, ilike } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
+import { db } from "@/server/db";
 import * as schema from "../src/server/db/schema";
 
-const DATABASE_URL = process.env.DATABASE_URL;
-if (!DATABASE_URL) {
-	console.error("DATABASE_URL is required");
-	process.exit(1);
-}
-
-const client = postgres(DATABASE_URL, {
-	ssl: DATABASE_URL.includes("localhost") ? false : "require",
-});
-const db = drizzle(client, { schema });
-
 async function findPerson(firstName: string, lastName: string) {
+	if (!db) throw new Error("Database not available");
 	const [person] = await db
 		.select()
 		.from(schema.people)
@@ -44,6 +33,7 @@ async function findPerson(firstName: string, lastName: string) {
 }
 
 async function findPersonLoose(firstName: string) {
+	if (!db) throw new Error("Database not available");
 	const results = await db
 		.select()
 		.from(schema.people)
@@ -51,11 +41,41 @@ async function findPersonLoose(firstName: string) {
 	return results;
 }
 
+/** Find or create a person, returning the record either way. */
+async function ensurePerson(
+	familyId: string,
+	firstName: string,
+	lastName: string,
+	opts: { gender?: string; isAlive?: boolean } = {},
+) {
+	if (!db) throw new Error("Database not available");
+	const existing = await findPerson(firstName, lastName);
+	if (existing) {
+		console.log(`  ✓ ${firstName} ${lastName} exists (${existing.id})`);
+		return existing;
+	}
+
+	const [created] = await db
+		.insert(schema.people)
+		.values({
+			familyId,
+			firstName,
+			lastName,
+			gender: opts.gender ?? null,
+			isAlive: opts.isAlive ?? true,
+		})
+		.returning();
+
+	console.log(`  + Created ${firstName} ${lastName} (${created!.id})`);
+	return created!;
+}
+
 async function ensureRelationship(
 	personId: string,
 	relatedId: string,
 	type: string,
 ) {
+	if (!db) throw new Error("Database not available");
 	const [existing] = await db
 		.select()
 		.from(schema.relationships)
@@ -78,6 +98,11 @@ async function ensureRelationship(
 }
 
 async function main() {
+	if (!db) {
+		console.error("Database not available");
+		process.exit(1);
+	}
+
 	console.log("🌱 Seeding Paul, Lynn, and Alice families...\n");
 
 	// Get family
@@ -112,82 +137,10 @@ async function main() {
 	console.log(`  Alice: ${alice.id}`);
 
 	// --- Create new people ---
-
-	// Penny (Paul's wife)
-	let penny = await findPerson("Penny", "Morrow");
-	if (!penny) {
-		const [p] = await db
-			.insert(schema.people)
-			.values({
-				familyId: family.id,
-				firstName: "Penny",
-				lastName: "Morrow",
-				gender: "female",
-				isAlive: true,
-			})
-			.returning();
-		penny = p!;
-		console.log(`  + Created Penny Morrow (${penny.id})`);
-	} else {
-		console.log(`  ✓ Penny Morrow exists (${penny.id})`);
-	}
-
-	// Billy Perrin (Lynn's late husband, deceased)
-	let billy = await findPerson("Billy", "Perrin");
-	if (!billy) {
-		const [b] = await db
-			.insert(schema.people)
-			.values({
-				familyId: family.id,
-				firstName: "Billy",
-				lastName: "Perrin",
-				gender: "male",
-				isAlive: false,
-			})
-			.returning();
-		billy = b!;
-		console.log(`  + Created Billy Perrin (deceased) (${billy.id})`);
-	} else {
-		console.log(`  ✓ Billy Perrin exists (${billy.id})`);
-	}
-
-	// Jim Dean (Alice's husband)
-	let jim = await findPerson("Jim", "Dean");
-	if (!jim) {
-		const [j] = await db
-			.insert(schema.people)
-			.values({
-				familyId: family.id,
-				firstName: "Jim",
-				lastName: "Dean",
-				gender: "male",
-				isAlive: true,
-			})
-			.returning();
-		jim = j!;
-		console.log(`  + Created Jim Dean (${jim.id})`);
-	} else {
-		console.log(`  ✓ Jim Dean exists (${jim.id})`);
-	}
-
-	// Shannon Perrin (Lynn & Billy's daughter) — NEW
-	let shannon = await findPerson("Shannon", "Perrin");
-	if (!shannon) {
-		const [s] = await db
-			.insert(schema.people)
-			.values({
-				familyId: family.id,
-				firstName: "Shannon",
-				lastName: "Perrin",
-				gender: "female",
-				isAlive: true,
-			})
-			.returning();
-		shannon = s!;
-		console.log(`  + Created Shannon Perrin (${shannon.id})`);
-	} else {
-		console.log(`  ✓ Shannon Perrin exists (${shannon.id})`);
-	}
+	const penny = await ensurePerson(family.id, "Penny", "Morrow", { gender: "female" });
+	const billy = await ensurePerson(family.id, "Billy", "Perrin", { gender: "male", isAlive: false });
+	const jim = await ensurePerson(family.id, "Jim", "Dean", { gender: "male" });
+	const shannon = await ensurePerson(family.id, "Shannon", "Perrin", { gender: "female" });
 
 	// --- Update Lynn's maiden name if not set ---
 	// Lynn married into Perrin but in DB she's Lynn Morrow (maiden)
@@ -290,7 +243,6 @@ async function main() {
 	console.log("   Alice & Jim Dean → Lacy (Lawrence), Liza (Stevens)");
 	console.log("\n   ⚠ Ginny Lamb still unassigned — need parent info");
 
-	await client.end();
 }
 
 main()

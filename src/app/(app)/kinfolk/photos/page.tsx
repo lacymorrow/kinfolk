@@ -1,5 +1,5 @@
 import { getPhotos } from "@/server/actions/kinfolk/photos";
-import { getFirstFamily, getPeople } from "@/server/actions/kinfolk/queries";
+import { getFirstFamily } from "@/server/actions/kinfolk/queries";
 import { PhotosClient } from "./photos-client";
 
 export default async function PhotosPage() {
@@ -12,12 +12,7 @@ export default async function PhotosPage() {
 		);
 	}
 
-	const [allPhotos, peopleRows] = await Promise.all([
-		getPhotos(family.id),
-		getPeople(family.id),
-	]);
+	const allPhotos = await getPhotos(family.id);
 
-	const people = peopleRows.map((r) => r.person);
-
-	return <PhotosClient photos={allPhotos} familyId={family.id} people={people} />;
+	return <PhotosClient photos={allPhotos} familyId={family.id} />;
 }

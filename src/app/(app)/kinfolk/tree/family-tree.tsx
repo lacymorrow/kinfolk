@@ -2,11 +2,13 @@
 
 import {
 	ReactFlow,
+	ReactFlowProvider,
 	Background,
 	Controls,
 	MiniMap,
 	useNodesState,
 	useEdgesState,
+	useReactFlow,
 	type Node,
 	type Edge,
 	type NodeProps,
@@ -15,7 +17,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useRouter } from "next/navigation";
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Person, Relationship } from "@/server/db/schema";
 
 interface PersonNodeData {
@@ -95,24 +97,150 @@ const nodeTypes = { person: PersonNode };
 interface FamilyTreeProps {
 	people: Person[];
 	relationships: Relationship[];
+	currentPersonId?: string;
 }
 
-export const FamilyTree = ({ people, relationships }: FamilyTreeProps) => {
+export const FamilyTree = (props: FamilyTreeProps) => (
+	<ReactFlowProvider>
+		<FamilyTreeInner {...props} />
+	</ReactFlowProvider>
+);
+
+const FamilyTreeInner = ({ people, relationships, currentPersonId: _currentPersonId }: FamilyTreeProps) => {
 	const { nodes: initialNodes, edges: initialEdges } = useMemo(
 		() => buildGraph(people, relationships),
 		[people, relationships],
 	);
 
-	const [nodes, , onNodesChange] = useNodesState(initialNodes);
+	const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
 	const [edges, , onEdgesChange] = useEdgesState(initialEdges);
+	const { setCenter } = useReactFlow();
+
+	// --- Search ---
+	const [searchTerm, setSearchTerm] = useState("");
+	const [showResults, setShowResults] = useState(false);
+	const searchRef = useRef<HTMLDivElement>(null);
+
+	const searchResults = useMemo(() => {
+		if (!searchTerm.trim()) return [];
+		const q = searchTerm.toLowerCase();
+		return people.filter(
+			(p) =>
+				p.firstName.toLowerCase().includes(q) ||
+				p.lastName.toLowerCase().includes(q) ||
+				`${p.firstName} ${p.lastName}`.toLowerCase().includes(q),
+		);
+	}, [searchTerm, people]);
+
+	// Close search dropdown on outside click
+	useEffect(() => {
+		const handler = (e: MouseEvent) => {
+			if (searchRef.current && !searchRef.current.contains(e.target as globalThis.Node)) {
+				setShowResults(false);
+			}
+		};
+		document.addEventListener("mousedown", handler);
+		return () => document.removeEventListener("mousedown", handler);
+	}, []);
+
+	const focusPerson = useCallback(
+		(personId: string) => {
+			const node = nodes.find((n) => n.id === personId);
+			if (!node) return;
+			setCenter(node.position.x + 80, node.position.y + 30, { zoom: 1.2, duration: 600 });
+			// Briefly highlight the node
+			setNodes((prev) =>
+				prev.map((n) =>
+					n.id === personId
+						? { ...n, style: { ...n.style, boxShadow: "0 0 0 3px #6366f1", borderRadius: "8px" } }
+						: { ...n, style: { ...n.style, boxShadow: undefined } },
+				),
+			);
+			setSearchTerm("");
+			setShowResults(false);
+		},
+		[nodes, setCenter, setNodes],
+	);
+
+	// --- Node click: highlight family unit ---
+	const [highlighted, setHighlighted] = useState<Set<string>>(new Set());
+
+	const onNodeClick = useCallback(
+		(_: React.MouseEvent, node: Node) => {
+			const personId = node.id;
+
+			// If clicking the same person, toggle off
+			if (highlighted.size === 1 && highlighted.has(personId)) {
+				setHighlighted(new Set());
+				setNodes((prev) => prev.map((n) => ({ ...n, style: { ...n.style, opacity: undefined } })));
+				return;
+			}
+
+			// Find immediate family: spouses, parents, children
+			const family = new Set<string>([personId]);
+			for (const rel of relationships) {
+				if (rel.personId === personId || rel.relatedId === personId) {
+					family.add(rel.personId);
+					family.add(rel.relatedId);
+				}
+			}
+			setHighlighted(family);
+			setNodes((prev) =>
+				prev.map((n) => ({
+					...n,
+					style: { ...n.style, opacity: family.has(n.id) ? 1 : 0.25 },
+				})),
+			);
+		},
+		[highlighted, relationships, setNodes],
+	);
+
+	// Click on background to clear highlights
+	const onPaneClick = useCallback(() => {
+		if (highlighted.size > 0) {
+			setHighlighted(new Set());
+			setNodes((prev) => prev.map((n) => ({ ...n, style: { ...n.style, opacity: undefined } })));
+		}
+	}, [highlighted, setNodes]);
 
 	return (
-		<div className="h-[calc(100vh-3.5rem)] w-full">
+		<div className="relative h-[calc(100vh-3.5rem)] w-full">
+			{/* Search bar */}
+			<div ref={searchRef} className="absolute left-4 top-4 z-10 w-64">
+				<input
+					type="text"
+					value={searchTerm}
+					onChange={(e) => {
+						setSearchTerm(e.target.value);
+						setShowResults(true);
+					}}
+					onFocus={() => setShowResults(true)}
+					placeholder="Search family members..."
+					className="w-full rounded-md border bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
+				/>
+				{showResults && searchResults.length > 0 && (
+					<div className="mt-1 max-h-60 overflow-auto rounded-md border bg-background shadow-lg">
+						{searchResults.map((p) => (
+							<button
+								key={p.id}
+								type="button"
+								className="w-full px-3 py-2 text-left text-sm hover:bg-muted"
+								onClick={() => focusPerson(p.id)}
+							>
+								{p.firstName} {p.lastName}
+							</button>
+						))}
+					</div>
+				)}
+			</div>
+
 			<ReactFlow
 				nodes={nodes}
 				edges={edges}
 				onNodesChange={onNodesChange}
 				onEdgesChange={onEdgesChange}
+				onNodeClick={onNodeClick}
+				onPaneClick={onPaneClick}
 				nodeTypes={nodeTypes}
 				fitView
 				minZoom={0.1}
