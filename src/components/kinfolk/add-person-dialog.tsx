@@ -44,12 +44,6 @@ interface AddPersonDialogProps {
 
 // --- Fuzzy matching ---
 
-function fuzzyMatch(query: string, text: string): boolean {
-	const q = query.toLowerCase().trim();
-	if (!q) return false;
-	return text.toLowerCase().includes(q);
-}
-
 function scorePerson(query: string, person: Person): number {
 	const q = query.toLowerCase().trim();
 	if (!q) return 0;
@@ -93,6 +87,9 @@ export function AddPersonDialog({
 	const router = useRouter();
 	const [isPending, startTransition] = useTransition();
 
+	// Error state
+	const [error, setError] = useState<string | null>(null);
+
 	// Form state
 	const [firstName, setFirstName] = useState("");
 	const [lastName, setLastName] = useState("");
@@ -120,6 +117,7 @@ export function AddPersonDialog({
 			setRelPersonId(relationshipContext?.personId ?? "");
 			setLinkExisting(null);
 			setStep("search");
+			setError(null);
 		}
 	}, [open, relationshipContext]);
 
@@ -162,6 +160,7 @@ export function AddPersonDialog({
 
 	const handleSubmit = useCallback(async () => {
 		startTransition(async () => {
+			setError(null);
 			try {
 				if (linkExisting) {
 					// Just create the relationship to the existing person
@@ -199,6 +198,7 @@ export function AddPersonDialog({
 				router.refresh();
 			} catch (err) {
 				console.error("Failed to add person:", err);
+				setError(err instanceof Error ? err.message : "An unexpected error occurred. Please try again.");
 			}
 		});
 	}, [linkExisting, relType, relPersonId, familyId, firstName, lastName, gender, birthdate, onOpenChange, router]);
@@ -405,6 +405,14 @@ export function AddPersonDialog({
 							<div className="rounded-md border bg-muted/30 p-3 text-sm">
 								Will be added as <span className="font-medium">{friendlyRelType(relationshipContext.type)}</span>{" "}
 								<span className="font-medium">{relationshipContext.personName}</span>
+							</div>
+						)}
+
+						{/* Error message */}
+						{error && (
+							<div className="flex items-start gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+								<AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+								{error}
 							</div>
 						)}
 
