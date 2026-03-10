@@ -32,6 +32,7 @@ export default async function TreePage() {
 
 	return (
 		<FamilyTree
+			familyId={family.id}
 			people={people}
 			relationships={relationships}
 			currentPersonId={currentPersonId}

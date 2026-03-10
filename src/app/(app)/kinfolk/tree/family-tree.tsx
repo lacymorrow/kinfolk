@@ -19,6 +19,8 @@ import "@xyflow/react/dist/style.css";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Person, Relationship } from "@/server/db/schema";
+import { AddPersonDialog } from "@/components/kinfolk/add-person-dialog";
+import { UserPlus } from "lucide-react";
 
 interface PersonNodeData {
 	person: Person;
@@ -95,6 +97,7 @@ const PersonNode = ({ data }: NodeProps<Node<PersonNodeData>>) => {
 const nodeTypes = { person: PersonNode };
 
 interface FamilyTreeProps {
+	familyId: string;
 	people: Person[];
 	relationships: Relationship[];
 	currentPersonId?: string;
@@ -106,7 +109,30 @@ export const FamilyTree = (props: FamilyTreeProps) => (
 	</ReactFlowProvider>
 );
 
-const FamilyTreeInner = ({ people, relationships, currentPersonId: _currentPersonId }: FamilyTreeProps) => {
+// Floating action button for adding people from the tree view
+function AddPersonFAB({ familyId, people }: { familyId: string; people: Person[] }) {
+	const [open, setOpen] = useState(false);
+	return (
+		<>
+			<button
+				type="button"
+				onClick={() => setOpen(true)}
+				className="absolute bottom-6 right-6 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105 active:scale-95"
+				title="Add person"
+			>
+				<UserPlus className="h-5 w-5" />
+			</button>
+			<AddPersonDialog
+				open={open}
+				onOpenChange={setOpen}
+				familyId={familyId}
+				allPeople={people}
+			/>
+		</>
+	);
+}
+
+const FamilyTreeInner = ({ familyId, people, relationships, currentPersonId: _currentPersonId }: FamilyTreeProps) => {
 	const { nodes: initialNodes, edges: initialEdges } = useMemo(
 		() => buildGraph(people, relationships),
 		[people, relationships],
@@ -255,6 +281,9 @@ const FamilyTreeInner = ({ people, relationships, currentPersonId: _currentPerso
 					className="!bg-background"
 				/>
 			</ReactFlow>
+
+			{/* Quick-add FAB */}
+			<AddPersonFAB familyId={familyId} people={people} />
 		</div>
 	);
 };
