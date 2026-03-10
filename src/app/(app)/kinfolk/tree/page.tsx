@@ -1,4 +1,9 @@
-import { getAllPeopleWithRelationships, getFirstFamily } from "@/server/actions/kinfolk/queries";
+import { auth } from "@/server/auth";
+import {
+	getAllPeopleWithRelationships,
+	getFirstFamily,
+	getPersonByUserId,
+} from "@/server/actions/kinfolk/queries";
 import { FamilyTree } from "./family-tree";
 
 export default async function TreePage() {
@@ -13,5 +18,23 @@ export default async function TreePage() {
 
 	const { people, relationships } = await getAllPeopleWithRelationships(family.id);
 
-	return <FamilyTree people={people} relationships={relationships} />;
+	// Resolve current user's person record for "Focus My Branch"
+	let currentPersonId: string | undefined;
+	try {
+		const session = await auth();
+		if (session?.user?.id) {
+			const person = await getPersonByUserId(session.user.id);
+			if (person) currentPersonId = person.id;
+		}
+	} catch {
+		// Not logged in or no linked person — button just won't appear
+	}
+
+	return (
+		<FamilyTree
+			people={people}
+			relationships={relationships}
+			currentPersonId={currentPersonId}
+		/>
+	);
 }
