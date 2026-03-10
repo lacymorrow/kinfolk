@@ -157,11 +157,23 @@ function TreeLegend({
 	onFocusMyBranch?: () => void;
 }) {
 	const [searchOpen, setSearchOpen] = useState(false);
+	const searchRef = useRef<HTMLDivElement>(null);
+
+	// Close dropdown on outside click
+	useEffect(() => {
+		function handleClickOutside(event: MouseEvent) {
+			if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+				setSearchOpen(false);
+			}
+		}
+		document.addEventListener("mousedown", handleClickOutside);
+		return () => document.removeEventListener("mousedown", handleClickOutside);
+	}, []);
 
 	return (
 		<div className="absolute left-4 top-4 z-50 flex flex-col gap-2 rounded-lg border bg-card/95 p-3 shadow-lg backdrop-blur-sm max-w-[260px]">
 			{/* Search */}
-			<div className="relative">
+			<div className="relative" ref={searchRef}>
 				<input
 					type="text"
 					placeholder="Search people..."
@@ -313,6 +325,7 @@ function FamilyTreeInner({ people, relationships, currentPersonId }: FamilyTreeP
 	});
 
 	const [highlightedIds, setHighlightedIds] = useState<Set<string>>(new Set());
+	const [highlightFocus, setHighlightFocus] = useState<string | null>(null);
 	const [collapsedUnits, setCollapsedUnits] = useState<Set<string>>(new Set());
 	const [searchQuery, setSearchQuery] = useState("");
 
@@ -534,18 +547,22 @@ function FamilyTreeInner({ people, relationships, currentPersonId }: FamilyTreeP
 	// Single click to highlight lineage
 	const onNodeClick = useCallback(
 		(_event: React.MouseEvent, node: Node) => {
-			// If already highlighting this person, clear
-			if (highlightedIds.has(node.id) && highlightedIds.size > 1) {
+			// Click the same focus person again → clear highlights
+			if (highlightFocus === node.id) {
 				setHighlightedIds(new Set());
+				setHighlightFocus(null);
 				return;
 			}
+			// Click any person (even an already-highlighted one) → switch focus to them
 			focusPerson(node.id);
+			setHighlightFocus(node.id);
 		},
-		[highlightedIds, focusPerson],
+		[highlightFocus, focusPerson],
 	);
 
 	const handleReset = useCallback(() => {
 		setHighlightedIds(new Set());
+		setHighlightFocus(null);
 		setCollapsedUnits(new Set());
 		setSearchQuery("");
 		setTimeout(() => fitView({ duration: 400 }), 50);

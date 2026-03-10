@@ -143,20 +143,7 @@ async function main() {
 	console.log("  ✓ Steve → Lee, David");
 
 	// John Cowhig (distinct from John Morrow)
-	// Check if there's already a John Cowhig
-	let johnC = await findPerson("John", "Cowhig");
-	if (!johnC) {
-		const [p] = await db!.insert(people).values({
-			familyId: family.id,
-			firstName: "John",
-			lastName: "Cowhig",
-			gender: "male",
-		}).returning();
-		johnC = p!;
-		console.log("  + John Cowhig (%s)", johnC.id);
-	} else {
-		console.log("  ✓ John Cowhig exists (%s)", johnC.id);
-	}
+	const johnC = await ensure({ firstName: "John", lastName: "Cowhig", gender: "male" });
 	const amy = await ensure({ firstName: "Amy", lastName: "Cowhig", gender: "female" });
 	const heather = await ensure({ firstName: "Heather", lastName: "Cowhig", gender: "female" });
 	await rel(johnC.id, amy.id, "parent");
