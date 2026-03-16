@@ -12,8 +12,6 @@
  * @see https://supabase.com/docs/guides/auth/auth-helpers/nextjs
  */
 
-// Auth helpers
-export { authUtils, supabaseAuth, supabaseServerAuth } from "./auth-helpers";
 // Client exports
 export { createSupabaseClient, getSupabaseClient } from "./client";
 // Server exports

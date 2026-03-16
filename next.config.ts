@@ -8,7 +8,6 @@ import { FILE_UPLOAD_MAX_SIZE } from "@/config/file";
 import { redirects } from "@/config/redirects";
 import { getDerivedSecrets } from "@/config/secrets";
 import { withPlugins } from "@/config/with-plugins";
-import { POSTHOG_RELAY_SLUG } from "@/lib/posthog/posthog-config";
 
 /** @type {import('next').NextConfig} */
 const nextConfig: NextConfig = {
@@ -69,26 +68,6 @@ const nextConfig: NextConfig = {
 	/* Redirects — see src/config/redirects.ts */
 	redirects,
 
-	/*
-	 * PostHog reverse proxy configuration
-	 */
-	rewrites() {
-		return Promise.resolve([
-			{
-				source: `/${POSTHOG_RELAY_SLUG}/static/:path*`,
-				destination: "https://us-assets.i.posthog.com/static/:path*",
-			},
-			{
-				source: `/${POSTHOG_RELAY_SLUG}/:path*`,
-				destination: "https://us.i.posthog.com/:path*",
-			},
-			{
-				source: `/${POSTHOG_RELAY_SLUG}/flags`,
-				destination: "https://us.i.posthog.com/flags",
-			},
-		]);
-	},
-	// This is required to support PostHog trailing slash API requests
 	skipTrailingSlashRedirect: true,
 
 	async headers() {
@@ -176,25 +155,10 @@ const nextConfig: NextConfig = {
 	 * - Native modules, optional DB drivers, AWS SDK, Payload CMS packages with CSS imports
 	 */
 	serverExternalPackages: [
-		// Native module (transitive dep of @builder.io/react) that fails to compile on Vercel
-		"isolated-vm",
-		// Drizzle Kit - CLI tool bundled by Payload CMS that has many optional drivers
+		// Drizzle Kit has many optional drivers
 		"drizzle-kit",
-		// Optional Drizzle ORM database drivers
-		"@aws-sdk/client-rds-data",
-		"@electric-sql/pglite",
-		"@libsql/client",
-		"@neondatabase/serverless",
-		"@planetscale/database",
-		"@vercel/postgres",
-		"better-sqlite3",
-		"mysql2",
-		// ESM-only packages that need to be externalized
-		"@octokit/rest",
 	],
 
-	// Enable React Compiler for useMemoCache runtime support
-	// Required for dependencies like lucide-react and @payloadcms/ui that use the compiler
 	reactCompiler: true,
 
 	/*
@@ -242,8 +206,8 @@ const nextConfig: NextConfig = {
 		 * Optimizes navigation performance by caching page segments
 		 */
 		staleTimes: {
-			dynamic: buildTimeFeatures.PAYLOAD_ENABLED ? 0 : 90, // Payload needs to be re-rendered on every request
-			static: 360, // 360 seconds for static routes
+			dynamic: 90,
+			static: 360,
 		},
 
 		// Memory optimization for builds - Uncomment if experiencing memory issues

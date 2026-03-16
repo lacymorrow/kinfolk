@@ -1,13 +1,8 @@
-// import "../scripts/env-config.js";
-import { seed as seedCMS } from "@/lib/payload/seed";
-
 async function main() {
 	console.log("🌱 Starting database seeding...");
 
 	try {
-		// Seed CMS collections (RBAC, Features, FAQs, Testimonials)
-		await seedCMS();
-
+		// TODO: Add Kinfolk-specific seed logic here
 		console.log("✅ Database seeded successfully");
 	} catch (error) {
 		console.error("❌ Error seeding database:", error);

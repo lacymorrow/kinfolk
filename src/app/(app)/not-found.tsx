@@ -1,9 +1,13 @@
-/* Not Found Page Component
- * This is a special Next.js page that renders when a route isn't found (404 error)
- * @see https://nextjs.org/docs/app/api-reference/file-conventions/not-found
- */
-import { NotFoundPage } from "@/components/pages/not-found-page";
+import Link from "next/link";
 
 export default function NotFound() {
-	return <NotFoundPage />;
+	return (
+		<div className="flex min-h-[50vh] flex-col items-center justify-center gap-4">
+			<h1 className="text-4xl font-bold">404</h1>
+			<p className="text-muted-foreground">Page not found</p>
+			<Link href="/kinfolk" className="text-primary underline">
+				Go to directory
+			</Link>
+		</div>
+	);
 }

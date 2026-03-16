@@ -1,14 +1,10 @@
 import { ErrorToast } from "@/components/primitives/error-toast";
 import { JsonLd } from "@/components/primitives/json-ld";
-import { AnalyticsProvider } from "@/components/providers/analytics-provider";
-import { HapticsProvider } from "@/components/providers/haptics-provider";
 import { KeyboardShortcutProvider } from "@/components/providers/keyboard-shortcut-provider";
 import { ThemeProvider as ShipkitThemeProvider } from "@/components/ui/shipkit/theme";
 import { Toaster } from "@/components/ui/sonner";
 import { Toaster as LegacyToaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { TRPCReactProvider } from "@/lib/trpc/react";
-// import ConsentProvider from "@/components/providers/consent-provider";
 
 import HolyLoader from "holy-loader";
 import { SessionProvider } from "next-auth/react";
@@ -21,21 +17,13 @@ import "@/styles/globals.css";
 
 interface KitProviderProps {
 	children: ReactNode;
-	/**
-	 * Session data for Next Auth
-	 */
 	session?: any;
-	/**
-	 * Page props for TRPC
-	 */
-	pageProps?: any;
 }
 
 /**
  * Main provider component that wraps all providers used in the application
- * Can be used in both App Router and Pages Router
  */
-export function KitProvider({ children, session, pageProps }: KitProviderProps) {
+export function KitProvider({ children, session }: KitProviderProps) {
 	const authEnabled = isAuthenticationAvailable();
 	const sessionProviderProps = authEnabled
 		? { session }
@@ -57,33 +45,20 @@ export function KitProvider({ children, session, pageProps }: KitProviderProps) 
 			/>
 			<ShipkitThemeProvider>
 				<SessionProvider {...(sessionProviderProps as any)}>
-					<TRPCReactProvider {...pageProps}>
-						<TooltipProvider delayDuration={100}>
-							<AnalyticsProvider>
-								{/* <ConsentProvider> */}
+					<TooltipProvider delayDuration={100}>
+						<KeyboardShortcutProvider>
+							<FontProvider>
+								{children}
 
-								<HapticsProvider>
-									<KeyboardShortcutProvider>
-										<FontProvider>
-											{/* Content */}
-											{children}
+								<Toaster />
+								<LegacyToaster />
 
-											{/* Toast - Display messages to the user */}
-											<Toaster />
-
-											<LegacyToaster />
-
-											{/* Error Toast - Display error messages to the user based on search params */}
-											<Suspense>
-												<ErrorToast />
-											</Suspense>
-										</FontProvider>
-									</KeyboardShortcutProvider>
-								</HapticsProvider>
-								{/* </ConsentProvider> */}
-							</AnalyticsProvider>
-						</TooltipProvider>
-					</TRPCReactProvider>
+								<Suspense>
+									<ErrorToast />
+								</Suspense>
+							</FontProvider>
+						</KeyboardShortcutProvider>
+					</TooltipProvider>
 				</SessionProvider>
 			</ShipkitThemeProvider>
 		</>

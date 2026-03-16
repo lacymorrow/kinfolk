@@ -3,8 +3,6 @@ import type React from "react";
 import { Suspense } from "react";
 
 import { AppRouterLayout } from "@/components/layouts/app-router-layout";
-import { FontSelector } from "@/components/modules/devtools/font-selector";
-import { ReactGrab } from "@/components/modules/devtools/react-grab";
 import { SuspenseFallback } from "@/components/primitives/suspense-fallback";
 import { fontSans, fontSerif } from "@/config/fonts";
 import {
@@ -14,13 +12,10 @@ import {
 	viewport as sharedViewport,
 } from "@/config/metadata";
 import { env } from "@/env";
-import { initializePaymentProviders } from "@/server/providers";
 
 export const fetchCache = "default-cache";
 export const metadata: Metadata = defaultMetadata;
 export const viewport: Viewport = sharedViewport;
-
-await initializePaymentProviders();
 
 export default async function Layout({
 	children,
@@ -51,16 +46,6 @@ export default async function Layout({
 				{headLinkHints.map((l: HeadLinkHint) => (
 					<link key={`${l.rel}-${l.href}`} rel={l.rel} href={l.href} crossOrigin={l.crossOrigin} />
 				))}
-
-				{env.NEXT_PUBLIC_FEATURE_DEVTOOLS_ENABLED && (
-					<script
-						async
-						defer
-						crossOrigin="anonymous"
-						src="https://tweakcn.com/live-preview.min.js"
-					/>
-				)}
-				<ReactGrab />
 			</head>
 			{/* Ensure portaled UI (e.g. Radix primitives) inherits the sans-serif family */}
 			<body
@@ -81,16 +66,6 @@ export default async function Layout({
 					{/*<BrickMarquee />*/}
 				</AppRouterLayout>
 
-				{/* React Grab — select elements and edit with AI agents */}
-				{process.env.NODE_ENV === "development" && <ReactGrab />}
-
-				{/* Add FontSelector only in development */}
-				{process.env.NODE_ENV === "development" &&
-					env.NEXT_PUBLIC_FEATURE_DEVTOOLS_FONT_SELECTOR_ENABLED && (
-						<Suspense fallback={null}>
-							<FontSelector />
-						</Suspense>
-					)}
 			</body>
 		</html>
 	);

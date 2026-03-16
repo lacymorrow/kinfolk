@@ -10,7 +10,6 @@ import { accounts, users } from "@/server/db/schema";
 interface ProfileData {
 	name: string;
 	bio?: string;
-	githubUsername?: string;
 	metadata?: {
 		location?: string;
 		website?: string;
@@ -42,7 +41,6 @@ export async function updateProfile(data: ProfileData) {
 			.set({
 				name: data.name,
 				bio: data.bio,
-				githubUsername: data.githubUsername,
 				metadata: data.metadata ? JSON.stringify(data.metadata) : null,
 				updatedAt: new Date(),
 			})
@@ -134,16 +132,13 @@ export async function disconnectAccount(
 			return { success: false, error: "You must be logged in to disconnect accounts" };
 		}
 
-		// Delete the account connection
 		await db
 			?.delete(accounts)
 			.where(and(eq(accounts.userId, session.user.id), eq(accounts.provider, provider)));
 
-		// Update the session directly
 		const { update } = await import("@/server/auth");
 		await update({
 			user: {
-				// Explicitly set accounts to simulate removal
 				accounts: (session.user.accounts || []).filter((account) => account.provider !== provider),
 			},
 		});
@@ -158,50 +153,6 @@ export async function disconnectAccount(
 		return {
 			success: false,
 			error: `Failed to disconnect ${provider} account. Please try again.`,
-		};
-	}
-}
-
-/**
- * Records that a user attempted to connect their Vercel account
- * This allows the onboarding flow to continue even if the actual connection fails
- */
-export async function markVercelConnectionAttempt() {
-	try {
-		const session = await auth();
-
-		if (!session?.user?.id) {
-			return {
-				success: false,
-				error: "You must be logged in to perform this action",
-			};
-		}
-
-		// Update the database to record the connection attempt
-		if (!db) {
-			return {
-				success: false,
-				error: "Database not available",
-			};
-		}
-
-		await db
-			.update(users)
-			.set({
-				vercelConnectionAttemptedAt: new Date(),
-				updatedAt: new Date(),
-			})
-			.where(eq(users.id, session.user.id));
-
-		return {
-			success: true,
-			message: "Vercel connection attempt recorded",
-		};
-	} catch (error) {
-		console.error("Error marking Vercel connection attempt:", error);
-		return {
-			success: false,
-			error: "Failed to record connection attempt",
 		};
 	}
 }
