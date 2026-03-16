@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * ESM loader hooks to handle CSS file imports
  * Returns an empty module for CSS files to prevent Node.js from failing

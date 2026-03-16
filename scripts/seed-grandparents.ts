@@ -66,7 +66,7 @@ async function main() {
 		const [person] = await db!
 			.insert(people)
 			.values({
-				familyId: family.id,
+				familyId: family!.id,
 				firstName: data.firstName,
 				lastName: data.lastName,
 				middleName: data.middleName ?? null,

@@ -42,7 +42,7 @@ async function main() {
 			return existing;
 		}
 		const [p] = await db!.insert(people).values({
-			familyId: family.id,
+			familyId: family!.id,
 			firstName: data.firstName,
 			lastName: data.lastName,
 			middleName: data.middleName ?? null,
@@ -128,15 +128,15 @@ async function main() {
 	const billy = await ensure({ firstName: "Billy", lastName: "Cowhig", gender: "male" });
 	const dahlia = await ensure({ firstName: "Dahlia", lastName: "Cowhig", gender: "female" });
 	await biRel(billy.id, dahlia.id, "spouse");
-	const jordan = await ensure({ firstName: "Jordan", lastName: "Cowhig", gender: null });
+	const jordan = await ensure({ firstName: "Jordan", lastName: "Cowhig", gender: undefined });
 	await rel(billy.id, jordan.id, "parent");
 	await rel(dahlia.id, jordan.id, "parent");
 	console.log("  ✓ Billy & Dahlia → Jordan");
 
 	// Steve Cowhig
 	const steve = await ensure({ firstName: "Steve", lastName: "Cowhig", gender: "male" });
-	const lee = await ensure({ firstName: "Lee", lastName: "Cowhig", gender: null });
-	const david = await ensure({ firstName: "David", lastName: "Cowhig", gender: null });
+	const lee = await ensure({ firstName: "Lee", lastName: "Cowhig", gender: undefined });
+	const david = await ensure({ firstName: "David", lastName: "Cowhig", gender: undefined });
 	await rel(steve.id, lee.id, "parent");
 	await rel(steve.id, david.id, "parent");
 	await biRel(lee.id, david.id, "sibling");

@@ -16,8 +16,8 @@ export default defineConfig({
 		setupFiles: ["./tests/setup-env.ts", "./tests/setup.ts"],
 		browser: {
 			enabled: true,
-			name: "chromium",
+			instances: [{ browser: "chromium" }],
 			provider: "playwright",
 		},
 	},
-});
+} as any);
