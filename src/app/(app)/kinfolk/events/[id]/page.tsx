@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getEventWithPeople } from "@/server/actions/kinfolk/events";
-import { getPhotosByEvent } from "@/server/actions/kinfolk/photos";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EVENT_TYPE_COLORS } from "@/lib/kinfolk/event-types";
 import { Badge } from "@/components/ui/badge";
@@ -13,10 +12,6 @@ export default async function EventDetailPage({
 	const { id } = await params;
 	const event = await getEventWithPeople(id);
 	if (!event) return notFound();
-
-	const eventPhotos = await getPhotosByEvent(id);
-
-
 
 	return (
 		<div className="mx-auto max-w-4xl p-4 sm:p-6 lg:p-8">
@@ -77,26 +72,7 @@ export default async function EventDetailPage({
 					</Card>
 				)}
 
-				{/* Event Photos */}
-				{eventPhotos.length > 0 && (
-					<Card>
-						<CardHeader>
-							<CardTitle>Photos</CardTitle>
-						</CardHeader>
-						<CardContent>
-							<div className="grid grid-cols-3 gap-2">
-								{eventPhotos.map((photo) => (
-									<img
-										key={photo.id}
-										src={photo.thumbnailUrl ?? photo.url}
-										alt={photo.caption ?? "Event photo"}
-										className="aspect-square rounded-md object-cover"
-									/>
-								))}
-							</div>
-						</CardContent>
-					</Card>
-				)}
+
 			</div>
 		</div>
 	);
