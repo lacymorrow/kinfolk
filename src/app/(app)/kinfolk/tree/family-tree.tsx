@@ -448,57 +448,99 @@ function buildGraph(
 	// Create childless partnership unions for couples who have no kids
 	// (already handled above when building from partnerships)
 
-	// --- Assign generations via BFS from roots ---
+	// --- Assign generations ---
+	// Phase 1: Compute generations purely from parent→child edges using
+	// iterative relaxation (like longest-path in a DAG). This ensures every
+	// person is placed at max(parent_gen) + 1, regardless of BFS visit order.
 	const generation = new Map<string, number>();
+
+	// True roots: people with no parents in the data
 	const roots = people.filter((p) => !childToParents.has(p.id));
-
-	// Ensure married-in spouses at root level are also roots
-	for (const r of [...roots]) {
-		const partners = partnerships.get(r.id);
-		if (partners) {
-			for (const sp of partners) {
-				if (!roots.find((x) => x.id === sp)) {
-					const spPerson = personMap.get(sp);
-					if (spPerson) roots.push(spPerson);
-				}
-			}
-		}
-	}
-
-	const queue: string[] = [];
 	for (const r of roots) {
-		if (!generation.has(r.id)) {
-			generation.set(r.id, 0);
-			queue.push(r.id);
+		generation.set(r.id, 0);
+	}
+
+	// Iteratively relax: push children down until stable.
+	// Each child's gen = max(all parents' gen) + 1. Re-run until no changes.
+	let changed = true;
+	while (changed) {
+		changed = false;
+		for (const [childId, parentIds] of childToParents) {
+			let maxParentGen = -1;
+			let allParentsKnown = true;
+			for (const pid of parentIds) {
+				const pg = generation.get(pid);
+				if (pg === undefined) {
+					allParentsKnown = false;
+				} else if (pg > maxParentGen) {
+					maxParentGen = pg;
+				}
+			}
+			if (maxParentGen >= 0) {
+				const target = maxParentGen + 1;
+				const current = generation.get(childId);
+				if (current === undefined || target > current) {
+					generation.set(childId, target);
+					changed = true;
+				}
+			}
+			// If no parent has a gen yet, skip — we'll catch them next iteration
+			// after their parents get assigned.
+		}
+		// Also assign any still-unset parents that have no parents themselves
+		for (const p of people) {
+			if (!generation.has(p.id) && !childToParents.has(p.id)) {
+				generation.set(p.id, 0);
+				changed = true;
+			}
 		}
 	}
 
-	while (queue.length > 0) {
-		const cur = queue.shift()!;
-		const gen = generation.get(cur)!;
-
-		// All partners get same generation
-		const partners = partnerships.get(cur);
-		if (partners) {
-			for (const sp of partners) {
-				if (!generation.has(sp)) {
-					generation.set(sp, gen);
-					queue.push(sp);
+	// Phase 2: Align spouses/partners to the same generation.
+	// A married-in spouse (no parents in tree) should match their partner's gen,
+	// not sit at gen 0. Take max gen among all partners in a couple.
+	let spouseChanged = true;
+	while (spouseChanged) {
+		spouseChanged = false;
+		for (const [personId, partnerIds] of partnerships) {
+			const myGen = generation.get(personId) ?? 0;
+			for (const partnerId of partnerIds) {
+				const partnerGen = generation.get(partnerId) ?? 0;
+				if (myGen < partnerGen) {
+					generation.set(personId, partnerGen);
+					spouseChanged = true;
+				} else if (partnerGen < myGen) {
+					generation.set(partnerId, myGen);
+					spouseChanged = true;
 				}
 			}
 		}
+	}
 
-		// Children get gen + 1
-		for (const childId of parentToChildren.get(cur) ?? []) {
-			const existing = generation.get(childId);
-			if (existing === undefined || gen + 1 > existing) {
-				generation.set(childId, gen + 1);
-				queue.push(childId);
+	// Phase 3: After spouse alignment, children may need to be pushed down again
+	// (e.g., if a married-in spouse was pulled up, their children from a prior
+	// relationship might need adjustment).
+	changed = true;
+	while (changed) {
+		changed = false;
+		for (const [childId, parentIds] of childToParents) {
+			let maxParentGen = -1;
+			for (const pid of parentIds) {
+				const pg = generation.get(pid);
+				if (pg !== undefined && pg > maxParentGen) maxParentGen = pg;
+			}
+			if (maxParentGen >= 0) {
+				const target = maxParentGen + 1;
+				const current = generation.get(childId) ?? 0;
+				if (target > current) {
+					generation.set(childId, target);
+					changed = true;
+				}
 			}
 		}
 	}
 
-	// Anyone still unplaced
+	// Anyone still unplaced (disconnected nodes with no relationships)
 	for (const p of people) {
 		if (!generation.has(p.id)) generation.set(p.id, 0);
 	}
