@@ -29,8 +29,10 @@ import { UserPlus, ChevronDown, ChevronRight } from "lucide-react";
 const NODE_WIDTH = 200;
 const NODE_HEIGHT = 72;
 const UNION_SIZE = 16;
-const GEN_GAP = 160;
-const SIBLING_GAP = 60;
+const GEN_GAP = 180;
+const SIBLING_GAP = 80;
+const EDGE_IDLE_OPACITY = 0.15;
+const EDGE_ACTIVE_OPACITY = 1;
 
 // ---------------------------------------------------------------------------
 // Node types
@@ -218,6 +220,39 @@ function AddPersonFAB({ familyId, people }: { familyId: string; people: Person[]
 	);
 }
 
+// ---------------------------------------------------------------------------
+// Helpers: build a lookup of nodeId -> connected edge ids + family member ids
+// ---------------------------------------------------------------------------
+function buildAdjacency(
+	edges: Edge[],
+	relationships: Relationship[],
+): {
+	nodeToEdges: Map<string, Set<string>>;
+	nodeToFamily: Map<string, Set<string>>;
+	edgeToNodes: Map<string, Set<string>>;
+} {
+	const nodeToEdges = new Map<string, Set<string>>();
+	const edgeToNodes = new Map<string, Set<string>>();
+	const nodeToFamily = new Map<string, Set<string>>();
+
+	for (const edge of edges) {
+		getOrCreate(nodeToEdges, edge.source).add(edge.id);
+		getOrCreate(nodeToEdges, edge.target).add(edge.id);
+		const s = new Set<string>();
+		s.add(edge.source);
+		s.add(edge.target);
+		edgeToNodes.set(edge.id, s);
+	}
+
+	// Build family: direct relationships (parents, children, spouse/partner)
+	for (const rel of relationships) {
+		getOrCreate(nodeToFamily, rel.personId).add(rel.relatedId);
+		getOrCreate(nodeToFamily, rel.relatedId).add(rel.personId);
+	}
+
+	return { nodeToEdges, nodeToFamily, edgeToNodes };
+}
+
 const FamilyTreeInner = ({ familyId, people, relationships, currentPersonId: _currentPersonId }: FamilyTreeProps) => {
 	const [collapsedUnions, setCollapsedUnions] = useState<Set<string>>(new Set());
 
@@ -242,11 +277,80 @@ const FamilyTreeInner = ({ familyId, people, relationships, currentPersonId: _cu
 	const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 	const { setCenter } = useReactFlow();
 
+	// Precompute adjacency for hover highlighting
+	const adjacency = useMemo(
+		() => buildAdjacency(initialEdges, relationships),
+		[initialEdges, relationships],
+	);
+
+	// Track hovered node for edge/node highlighting
+	const [hoveredNode, setHoveredNode] = useState<string | null>(null);
+
 	// Sync when graph rebuilds (collapse/expand)
 	useEffect(() => {
 		setNodes(initialNodes);
 		setEdges(initialEdges);
 	}, [initialNodes, initialEdges, setNodes, setEdges]);
+
+	// Apply hover-based edge opacity
+	useEffect(() => {
+		if (!hoveredNode) {
+			// Reset: all edges ghosted, all nodes full opacity
+			setEdges((prev) =>
+				prev.map((e) => ({
+					...e,
+					style: { ...e.style, opacity: EDGE_IDLE_OPACITY, transition: "opacity 0.2s" },
+				})),
+			);
+			setNodes((prev) =>
+				prev.map((n) => ({
+					...n,
+					style: { ...n.style, opacity: 1, transition: "opacity 0.2s" },
+				})),
+			);
+			return;
+		}
+
+		const connectedEdges = adjacency.nodeToEdges.get(hoveredNode) ?? new Set();
+		const familyMembers = adjacency.nodeToFamily.get(hoveredNode) ?? new Set();
+
+		// Also include union nodes that are connected to this person
+		const connectedNodes = new Set<string>([hoveredNode]);
+		for (const eid of connectedEdges) {
+			const ends = adjacency.edgeToNodes.get(eid);
+			if (ends) for (const nid of ends) connectedNodes.add(nid);
+		}
+		for (const fid of familyMembers) connectedNodes.add(fid);
+
+		setEdges((prev) =>
+			prev.map((e) => ({
+				...e,
+				style: {
+					...e.style,
+					opacity: connectedEdges.has(e.id) ? EDGE_ACTIVE_OPACITY : EDGE_IDLE_OPACITY,
+					transition: "opacity 0.2s",
+				},
+			})),
+		);
+		setNodes((prev) =>
+			prev.map((n) => ({
+				...n,
+				style: {
+					...n.style,
+					opacity: connectedNodes.has(n.id) ? 1 : 0.25,
+					transition: "opacity 0.2s",
+				},
+			})),
+		);
+	}, [hoveredNode, adjacency, setEdges, setNodes]);
+
+	const onNodeMouseEnter = useCallback((_: React.MouseEvent, node: Node) => {
+		if (node.type !== "union") setHoveredNode(node.id);
+	}, []);
+
+	const onNodeMouseLeave = useCallback(() => {
+		setHoveredNode(null);
+	}, []);
 
 	// --- Search ---
 	const [searchTerm, setSearchTerm] = useState("");
@@ -282,60 +386,14 @@ const FamilyTreeInner = ({ familyId, people, relationships, currentPersonId: _cu
 				zoom: 1.2,
 				duration: 600,
 			});
-			setNodes((prev) =>
-				prev.map((n) =>
-					n.id === personId
-						? { ...n, style: { ...n.style, boxShadow: "0 0 0 3px #6366f1", borderRadius: "8px" } }
-						: { ...n, style: { ...n.style, boxShadow: undefined } },
-				),
-			);
+			setHoveredNode(personId);
+			// Clear hover after a brief highlight
+			setTimeout(() => setHoveredNode(null), 2000);
 			setSearchTerm("");
 			setShowResults(false);
 		},
-		[nodes, setCenter, setNodes],
+		[nodes, setCenter],
 	);
-
-	// --- Highlight family on click ---
-	const [highlighted, setHighlighted] = useState<Set<string>>(new Set());
-
-	const onNodeClick = useCallback(
-		(_: React.MouseEvent, node: Node) => {
-			if (node.type === "union") return; // union click handled by its own toggle
-
-			const personId = node.id;
-			if (highlighted.size === 1 && highlighted.has(personId)) {
-				setHighlighted(new Set());
-				setNodes((prev) => prev.map((n) => ({ ...n, style: { ...n.style, opacity: undefined } })));
-				return;
-			}
-
-			const family = new Set<string>([personId]);
-			for (const rel of relationships) {
-				if (rel.personId === personId || rel.relatedId === personId) {
-					family.add(rel.personId);
-					family.add(rel.relatedId);
-				}
-			}
-			setHighlighted(family);
-			setNodes((prev) =>
-				prev.map((n) => ({
-					...n,
-					style: {
-						...n.style,
-						opacity: n.type === "union" ? (family.has(n.id) ? 1 : 0.15) : family.has(n.id) ? 1 : 0.25,
-					},
-				})),
-			);
-		},
-		[highlighted, relationships, setNodes],
-	);
-
-	const onPaneClick = useCallback(() => {
-		if (highlighted.size > 0) {
-			setHighlighted(new Set());
-			setNodes((prev) => prev.map((n) => ({ ...n, style: { ...n.style, opacity: undefined } })));
-		}
-	}, [highlighted, setNodes]);
 
 	return (
 		<div className="relative h-[calc(100vh-3.5rem)] w-full">
@@ -382,13 +440,18 @@ const FamilyTreeInner = ({ familyId, people, relationships, currentPersonId: _cu
 				</div>
 			)}
 
+			{/* Hover hint */}
+			<div className="absolute bottom-6 left-4 z-10 rounded-md bg-background/80 px-2 py-1 text-[10px] text-muted-foreground backdrop-blur">
+				Hover a person to highlight their family
+			</div>
+
 			<ReactFlow
 				nodes={nodes}
 				edges={edges}
 				onNodesChange={onNodesChange}
 				onEdgesChange={onEdgesChange}
-				onNodeClick={onNodeClick}
-				onPaneClick={onPaneClick}
+				onNodeMouseEnter={onNodeMouseEnter}
+				onNodeMouseLeave={onNodeMouseLeave}
 				nodeTypes={nodeTypes}
 				fitView
 				minZoom={0.1}
@@ -664,7 +727,7 @@ function buildGraph(
 				sourceHandle: isLeft ? "right" : "left",
 				targetHandle: isLeft ? "left" : "right",
 				type: "straight",
-				style: { stroke: "#ec4899", strokeWidth: 2 },
+				style: { stroke: "#ec4899", strokeWidth: 2, opacity: EDGE_IDLE_OPACITY, transition: "opacity 0.2s" },
 			});
 		}
 
@@ -683,7 +746,7 @@ function buildGraph(
 					sourceHandle: "bottom",
 					targetHandle: "top",
 					type: "smoothstep",
-					style: { stroke: "#6366f1", strokeWidth: 1.5 },
+					style: { stroke: "#6366f1", strokeWidth: 1.5, opacity: EDGE_IDLE_OPACITY, transition: "opacity 0.2s" },
 				});
 			}
 		}
