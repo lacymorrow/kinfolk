@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { type ReactNode } from "react";
 
+export const dynamic = "force-dynamic";
+
 const navItems = [
 	{ href: "/kinfolk/directory", label: "Directory" },
 	{ href: "/kinfolk/tree", label: "Tree" },
