@@ -37,7 +37,7 @@ jobs:
           LH_T_A11Y: '95'
           LH_T_SEO: '95'
           LH_T_BP: '95'
-        run: bun run audit:lh:loop -- http://localhost:3000/
+        run: bun run audit:lh -- http://localhost:3000/
 
       - name: Upload Lighthouse Artifacts
         uses: actions/upload-artifact@v4
