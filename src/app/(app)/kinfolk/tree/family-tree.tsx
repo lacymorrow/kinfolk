@@ -94,14 +94,15 @@ interface UnionNodeData {
 	unionId: string;
 	collapsed: boolean;
 	hasChildren: boolean;
+	partners: string[];
 	onToggle?: (unionId: string) => void;
 	[key: string]: unknown;
 }
 
-const UnionNode = ({ data }: NodeProps<Node<UnionNodeData>>) => {
+const UnionNode = ({ data }: NodeProps<UnionNodeData>) => {
 	const hasChildren = data.hasChildren;
 	const collapsed = data.collapsed;
-	const onToggle = data.onToggle as ((id: string) => void) | undefined;
+	const onToggle = data.onToggle;
 
 	return (
 		<div
@@ -333,14 +334,20 @@ const FamilyTreeInner = ({ familyId, people, relationships, currentPersonId: _cu
 			})),
 		);
 		setNodes((prev) =>
-			prev.map((n) => ({
-				...n,
-				style: {
-					...n.style,
-					opacity: connectedNodes.has(n.id) ? 1 : 0.25,
-					transition: "opacity 0.2s",
-				},
-			})),
+			prev.map((n) => {
+				const isHighlighted =
+					connectedNodes.has(n.id) ||
+					(n.type === "union" &&
+						(n.data as UnionNodeData).partners.some((pid) => connectedNodes.has(pid)));
+				return {
+					...n,
+					style: {
+						...n.style,
+						opacity: isHighlighted ? 1 : 0.25,
+						transition: "opacity 0.2s",
+					},
+				};
+			}),
 		);
 	}, [hoveredNode, adjacency, setEdges, setNodes]);
 
@@ -489,8 +496,6 @@ function buildGraph(
 	collapsedUnions: Set<string>,
 	onToggle: (unionId: string) => void,
 ): { nodes: Node[]; edges: Edge[] } {
-	const personMap = new Map(people.map((p) => [p.id, p]));
-
 	// --- Build adjacency ---
 	const childToParents = new Map<string, Set<string>>();
 	const parentToChildren = new Map<string, Set<string>>();
@@ -566,7 +571,7 @@ function buildGraph(
 			const existingUnions = personToUnions.get(parentId) ?? [];
 			for (const uid of existingUnions) {
 				const u = unionMap.get(uid)!;
-				if (u.partners.includes(parentId)) {
+				if (u.partners.length === 1 && u.partners[0] === parentId) {
 					u.children.push(childId);
 					assigned = true;
 					break;
@@ -691,6 +696,7 @@ function buildGraph(
 				unionId: union.id,
 				collapsed: collapsedUnions.has(union.id),
 				hasChildren: union.children.length > 0,
+				partners: union.partners,
 				onToggle: onToggle,
 			},
 		});
