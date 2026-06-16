@@ -309,13 +309,20 @@
       "prettier --write"
     ]
   },
+  "overrides": {
+    "@aws-sdk/xml-builder": "3.972.30"
+  },
+  "resolutions": {
+    "@aws-sdk/xml-builder": "3.972.30"
+  },
   "pnpm": {
     "overrides": {
       "react": "19.2.4",
       "react-dom": "19.2.4",
       "oauth4webapi": "3.6.2",
       "@tanstack/react-query": "5.90.21",
-      "@tanstack/query-core": "5.83.0"
+      "@tanstack/query-core": "5.83.0",
+      "@aws-sdk/xml-builder": "3.972.30"
     },
     "onlyBuiltDependencies": [
       "@clerk/shared",
