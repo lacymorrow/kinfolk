@@ -17,7 +17,10 @@ describe("@aws-sdk/xml-builder CJS loadability", () => {
 	it("loads under CommonJS without ERR_REQUIRE_ESM", async () => {
 		const mod = await import("@aws-sdk/xml-builder");
 		expect(mod).toBeDefined();
-		expect(typeof mod.XmlNode ?? mod.XmlText ?? mod).not.toBe("undefined");
+		// xml-builder exposes XmlNode + XmlText; if either is wired up, the
+		// CJS bundle evaluated cleanly (the regression manifested as a throw
+		// during module evaluation before any exports were set).
+		expect(mod.XmlNode ?? mod.XmlText).toBeDefined();
 	});
 
 	it("pins @aws-sdk/xml-builder to a version that inlines @nodable/entities", async () => {
