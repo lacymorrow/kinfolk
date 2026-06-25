@@ -14,14 +14,19 @@ import { requireFamilyAccess, requireAuth } from "./auth";
 
 export async function getEvents(familyId: string, type?: string) {
 	if (!db) return [];
-	await requireFamilyAccess(familyId);
-	const conditions = [eq(kinfolkEvents.familyId, familyId)];
-	if (type) conditions.push(eq(kinfolkEvents.type, type));
-	return db
-		.select()
-		.from(kinfolkEvents)
-		.where(and(...conditions))
-		.orderBy(desc(kinfolkEvents.date));
+	try {
+		await requireFamilyAccess(familyId);
+		const conditions = [eq(kinfolkEvents.familyId, familyId)];
+		if (type) conditions.push(eq(kinfolkEvents.type, type));
+		return await db
+			.select()
+			.from(kinfolkEvents)
+			.where(and(...conditions))
+			.orderBy(desc(kinfolkEvents.date));
+	} catch (error) {
+		console.error("[kinfolk] getEvents failed:", error);
+		return [];
+	}
 }
 
 export async function getEvent(id: string) {
