@@ -1,20 +1,8 @@
-import type { Route } from "next";
 import { siteConfig } from "./site-config";
 
-type ParamValue = string | number | null;
-export type RouteParams = Record<string, ParamValue>;
-
-export interface RouteObject {
-  path: Route;
-  params?: RouteParams;
-}
-
-export const createRoute = (path: Route, params: RouteParams = {}): RouteObject => ({
-  path,
-  params,
-});
-
-// Flattened routes structure for better type safety and easier access
+// Route definitions. Every leaf is one of two shapes:
+//   - a string for static routes
+//   - a function `(params) => string` for dynamic routes
 export const routes = {
   // Public routes
   home: "/",
@@ -69,7 +57,6 @@ export const routes = {
     deployments: "/deployments",
     apiKeys: "/api-keys",
     logs: "/logs",
-    network: "/network",
     live: "/live",
     tools: "/tools",
     downloads: "/downloads",
@@ -100,7 +87,7 @@ export const routes = {
   api: {
     download: "/api/download",
     apiKeys: "/api/api-keys",
-    apiKey: createRoute("/api/api-keys/:key", { key: null }),
+    apiKey: (key: string) => `/api/api-keys/${key}`,
     live: "/api/live-logs",
     sse: "/api/sse-logs",
     sendTestLog: "/api/send-test-log",
@@ -140,7 +127,6 @@ export const routes = {
     formsDisplay: "/examples/forms/display",
     music: "/examples/music",
     authentication: "/examples/authentication",
-    notifications: "/examples/forms/notifications",
     profile: "/examples/forms/profile",
   },
 
@@ -211,27 +197,27 @@ export const routes = {
   external: {
     shipkit: "https://shipkit.io",
     bones: "https://bones.sh",
+    bones_github: "https://github.com/shipkit-io/bones",
     log: "https://log.bones.sh",
     ui: "https://ui.bones.sh",
     buy: "https://shipkit.lemonsqueezy.com/checkout/buy/20b5b59e-b4c4-43b0-9979-545f90c76f28",
     discord: "https://discord.gg/XxKrKNvEje",
-    twitter: siteConfig.links.twitter,
-    twitter_follow: siteConfig.links.twitter_follow,
-    x: siteConfig.links.x,
-    x_follow: siteConfig.links.x_follow,
-    // Social profiles (mirrors siteConfig.social)
-    github: siteConfig.social.github || siteConfig.repo.url,
-    linkedin: siteConfig.social.linkedin || "",
-    instagram: siteConfig.social.instagram || "",
-    facebook: siteConfig.social.facebook || "",
-    youtube: siteConfig.social.youtube || "",
-    tiktok: siteConfig.social.tiktok || "",
-    discordCommunity: siteConfig.social.discord || "https://discord.gg/XxKrKNvEje",
-    dribbble: siteConfig.social.dribbble || "",
-    threads: siteConfig.social.threads || "",
-    website: siteConfig.creator.url,
-    docs: "/docs",
-    email: `mailto:${siteConfig.creator.email}`,
+    twitter: siteConfig.links?.twitter ?? "",
+    twitter_follow: siteConfig.links?.twitter_follow ?? "",
+    x: siteConfig.links?.x ?? "",
+    x_follow: siteConfig.links?.x_follow ?? "",
+    // Social profiles (mirrors siteConfig.social if available)
+    github: (siteConfig as any).social?.github ?? siteConfig.repo?.url ?? "",
+    linkedin: (siteConfig as any).social?.linkedin ?? "",
+    instagram: (siteConfig as any).social?.instagram ?? "",
+    facebook: (siteConfig as any).social?.facebook ?? "",
+    youtube: (siteConfig as any).social?.youtube ?? "",
+    tiktok: (siteConfig as any).social?.tiktok ?? "",
+    discordCommunity: (siteConfig as any).social?.discord ?? "https://discord.gg/XxKrKNvEje",
+    dribbble: (siteConfig as any).social?.dribbble ?? "",
+    threads: (siteConfig as any).social?.threads ?? "",
+    website: (siteConfig as any).creator?.url ?? "",
+    email: `mailto:${(siteConfig as any).creator?.email ?? siteConfig.email?.support ?? ""}`,
     vercelDeploy: ({
       repositoryUrl,
       projectName,
