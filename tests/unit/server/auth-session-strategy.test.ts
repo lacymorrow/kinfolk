@@ -68,6 +68,12 @@ describe("resolveSessionStrategy", () => {
     expect(resolveSessionStrategy([githubProvider], false)).toBe("jwt");
   });
 
+  // Auth.js only runs its credentials check when it saw a credentials provider,
+  // so an empty list must keep the strategy it had before this fix.
+  it("keeps the database strategy for an empty provider list", () => {
+    expect(resolveSessionStrategy([], true)).toBe("database");
+  });
+
   it("resolves providers declared as functions", () => {
     expect(resolveSessionStrategy([() => credentialsProvider], true)).toBe("jwt");
     expect(resolveSessionStrategy([() => githubProvider], true)).toBe("database");

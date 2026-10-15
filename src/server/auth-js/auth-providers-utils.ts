@@ -89,11 +89,15 @@ export const isGuestOnlyMode = env.NEXT_PUBLIC_FEATURE_AUTH_GUEST_ENABLED && !ha
 /**
  * Pick the Auth.js session strategy for a provider list.
  *
- * Auth.js rejects `strategy: "database"` when every provider is of type
- * `credentials` and returns `UnsupportedStrategy`, which turns every
- * `/api/auth/*` request into a 500 "There was a problem with the server
- * configuration." So the strategy has to follow the provider list, not just
- * database availability.
+ * Auth.js rejects `strategy: "database"` when a credentials provider is present
+ * and no provider of any other type is. It returns `UnsupportedStrategy`, which
+ * turns every `/api/auth/*` request into a 500 "There was a problem with the
+ * server configuration." So the strategy has to follow the provider list, not
+ * just database availability.
+ *
+ * The condition below mirrors that assertion exactly, including the fact that
+ * an empty provider list keeps the database strategy: Auth.js only runs the
+ * check when it actually saw a credentials provider.
  *
  * @see https://authjs.dev/reference/core/errors#unsupportedstrategy
  */
@@ -103,10 +107,11 @@ export function resolveSessionStrategy(
 ): "database" | "jwt" {
   if (!useDatabaseAdapter) return "jwt";
 
-  // Mirrors the resolution Auth.js uses in its own config assertion.
-  const hasNonCredentialsProvider = providers.some(
-    (provider) => (typeof provider === "function" ? provider() : provider).type !== "credentials"
+  const providerTypes = providers.map(
+    (provider) => (typeof provider === "function" ? provider() : provider).type
   );
+  const hasCredentials = providerTypes.includes("credentials");
+  const hasOtherType = providerTypes.some((type) => type !== "credentials");
 
-  return hasNonCredentialsProvider ? "database" : "jwt";
+  return hasCredentials && !hasOtherType ? "jwt" : "database";
 }
