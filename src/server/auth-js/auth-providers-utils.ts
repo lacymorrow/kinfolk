@@ -1,3 +1,4 @@
+import type { NextAuthConfig } from "next-auth";
 import { env } from "@/env";
 
 // Define details for all possible providers in the desired UI display order.
@@ -84,3 +85,28 @@ export const enabledAuthProviders = availableProviderDetails.map((provider) => {
 // Helper to check if only guest authentication is available
 // Requires explicit guest flag AND no other authentication methods
 export const isGuestOnlyMode = env.NEXT_PUBLIC_FEATURE_AUTH_GUEST_ENABLED && !hasAuthMethods;
+
+/**
+ * Pick the Auth.js session strategy for a provider list.
+ *
+ * Auth.js rejects `strategy: "database"` when every provider is of type
+ * `credentials` and returns `UnsupportedStrategy`, which turns every
+ * `/api/auth/*` request into a 500 "There was a problem with the server
+ * configuration." So the strategy has to follow the provider list, not just
+ * database availability.
+ *
+ * @see https://authjs.dev/reference/core/errors#unsupportedstrategy
+ */
+export function resolveSessionStrategy(
+  providers: NextAuthConfig["providers"],
+  useDatabaseAdapter: boolean
+): "database" | "jwt" {
+  if (!useDatabaseAdapter) return "jwt";
+
+  // Mirrors the resolution Auth.js uses in its own config assertion.
+  const hasNonCredentialsProvider = providers.some(
+    (provider) => (typeof provider === "function" ? provider() : provider).type !== "credentials"
+  );
+
+  return hasNonCredentialsProvider ? "database" : "jwt";
+}
