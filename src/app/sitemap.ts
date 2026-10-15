@@ -59,7 +59,12 @@ export async function generateSitemaps() {
   return sitemaps;
 }
 
+// Kinfolk is a private, noindex app; do not advertise any URLs.
+const SITE_IS_NOINDEX = true;
+
 export default async function sitemap({ id }: { id: number }): Promise<MetadataRoute.Sitemap> {
+  if (SITE_IS_NOINDEX) return [];
+
   // Marketing pages (highest priority)
   const marketingRoutes = [
     {

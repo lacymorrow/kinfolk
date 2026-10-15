@@ -29,6 +29,12 @@ export default function KinfolkLayout({ children }: { children: ReactNode }) {
 							</Link>
 						))}
 					</nav>
+					<a
+						href="https://lacymorrow.com"
+						className="ml-auto text-xs text-muted-foreground transition-colors hover:text-foreground"
+					>
+						by Lacy Morrow
+					</a>
 				</div>
 			</header>
 			{children}
