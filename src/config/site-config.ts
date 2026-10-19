@@ -186,13 +186,14 @@ export const siteConfig: SiteConfig = {
     pageTransitions: true,
   },
 
-  name: "Shipkit",
-  title: "Shipkit",
-  tagline: "Launch your app at light speed.",
-  url: "https://shipkit.io",
-  ogImage: "/app/og-image.png",
+  name: "Kinfolk",
+  title: "Kinfolk: a private family directory",
+  tagline: "A private family directory.",
+  url: "https://kinfolk.lacy.sh",
+  // No Kinfolk-specific share image yet; the old one was the Shipkit starter's.
+  ogImage: "",
   description:
-    "Launch your app at light speed. Fast, flexible, and feature-packed for the modern web.",
+    "Kinfolk is a private family directory. Browse the family tree, look up relatives and their contact details, and keep track of family events.",
 
   branding: {
     projectName: "Shipkit",
@@ -311,7 +312,7 @@ export const siteConfig: SiteConfig = {
       imageHeight: 630,
     },
     twitter: {
-      card: "summary_large_image",
+      card: "summary",
     },
     robots: {
       index: true,

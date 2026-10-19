@@ -14,6 +14,18 @@ const getDefaultTitleString = (title: Metadata["title"]): string | undefined => 
   return undefined;
 };
 
+// Only advertise a share image when the site has one of its own.
+const shareImages = siteConfig.ogImage
+  ? [
+      {
+        url: siteConfig.ogImage,
+        width: siteConfig.metadata.openGraph.imageWidth,
+        height: siteConfig.metadata.openGraph.imageHeight,
+        alt: siteConfig.title,
+      },
+    ]
+  : undefined;
+
 const defaultOpenGraph: OpenGraph = {
   type: "website",
   locale: siteConfig.metadata.locale,
@@ -21,28 +33,14 @@ const defaultOpenGraph: OpenGraph = {
   title: siteConfig.title,
   description: siteConfig.description,
   siteName: siteConfig.title,
-  images: [
-    {
-      url: siteConfig.ogImage,
-      width: siteConfig.metadata.openGraph.imageWidth,
-      height: siteConfig.metadata.openGraph.imageHeight,
-      alt: siteConfig.title,
-    },
-  ],
+  images: shareImages,
 };
 
 const defaultTwitter: Twitter = {
   card: siteConfig.metadata.twitter.card,
   title: siteConfig.title,
   description: siteConfig.description,
-  images: [
-    {
-      url: siteConfig.ogImage,
-      width: siteConfig.metadata.openGraph.imageWidth,
-      height: siteConfig.metadata.openGraph.imageHeight,
-      alt: siteConfig.title,
-    },
-  ],
+  images: shareImages,
   creator: siteConfig.creator.twitter,
 };
 
@@ -66,17 +64,8 @@ export const defaultMetadata: Metadata = {
   generator: siteConfig.metadata.generator,
   keywords: siteConfig.metadata.keywords,
   referrer: siteConfig.metadata.referrer,
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      "max-snippet": -1,
-      "max-image-preview": "large",
-      "max-video-preview": -1,
-    },
-  },
+  // Family data is private and sits behind sign-in; nothing here is meant for search.
+  robots: { index: false, follow: false },
   alternates: siteConfig.metadata.alternates,
   openGraph: defaultOpenGraph,
   twitter: defaultTwitter,

@@ -10,7 +10,8 @@ import { isBetterAuthActive, isClerkActive } from "@/lib/auth/auth-strategy";
 import { logger } from "@/lib/logger";
 import { redirect, routeRedirect } from "@/lib/utils/redirect";
 import { authOptions } from "@/server/auth-js/auth.config";
-import { isGuestOnlyMode } from "@/server/auth-js/auth-providers-utils";
+import { providers } from "@/server/auth-js/auth-providers.config";
+import { isGuestOnlyMode, resolveSessionStrategy } from "@/server/auth-js/auth-providers-utils";
 import {
   betterAuthSignIn,
   betterAuthSignOut,
@@ -42,9 +43,17 @@ import type { UserRole } from "@/types/user";
  * For guest users:
  * - JWT strategy is used since guest users don't persist in the database
  * - No adapter is used when in guest-only mode
+ *
+ * Auth.js refuses the database strategy outright when credentials (including
+ * the guest provider) is the only provider type, so `resolveSessionStrategy`
+ * falls back to JWT in that case. See its docblock for the failure it avoids.
  */
 // Determine if we should use database adapter
 const shouldUseDatabaseAdapter = env.NEXT_PUBLIC_FEATURE_DATABASE_ENABLED && db && !isGuestOnlyMode;
+
+// Auth.js only supports database sessions when at least one provider is not
+// credentials-based, so the strategy follows the provider list.
+const sessionStrategy = resolveSessionStrategy(providers, !!shouldUseDatabaseAdapter);
 
 const {
   auth: nextAuthAuth,
@@ -57,10 +66,10 @@ const {
       ...authOptions,
       trustHost: true,
       secret: env.AUTH_SECRET ?? "supersecretshipkit",
-      // Override session strategy based on adapter usage
+      // Override session strategy based on adapter usage and provider types
       session: {
         ...authOptions.session,
-        strategy: shouldUseDatabaseAdapter ? "database" : "jwt",
+        strategy: sessionStrategy,
       },
       // Use database adapter only when not in guest-only mode and database is available
       adapter: shouldUseDatabaseAdapter
