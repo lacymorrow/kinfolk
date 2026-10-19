@@ -99,6 +99,6 @@ export async function GET(request: NextRequest) {
       userId: session?.user?.id,
     });
 
-    return NextResponse.redirect(new URL(`${routes.docs}?error=download-failed`, siteConfig.url));
+    return NextResponse.redirect(new URL(`${routes.home}?error=download-failed`, siteConfig.url));
   }
 }

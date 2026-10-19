@@ -21,7 +21,7 @@ interface NavUserProps {
   showUpgrade?: boolean;
 }
 
-export function NavUser({ className, showUpgrade = true }: NavUserProps) {
+export function NavUser({ className, showUpgrade = false }: NavUserProps) {
   const { isMobile } = useSidebar();
   const { data: session, status } = useSession();
   const [isOpen, setIsOpen] = useState(false);

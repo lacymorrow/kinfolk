@@ -14,7 +14,6 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { ShortcutAction } from "@/config/keyboard-shortcuts";
-import { routes } from "@/config/routes";
 import { siteConfig } from "@/config/site-config";
 import { cn } from "@/lib/utils";
 
@@ -55,35 +54,27 @@ export function CommandMenu() {
           <CommandGroup heading="Links">
             <CommandItem
               onSelect={() => {
-                router.push(routes.docs);
+                router.push("/kinfolk/directory");
                 setOpen(false);
               }}
             >
-              Documentation
+              Directory
             </CommandItem>
             <CommandItem
               onSelect={() => {
-                router.push(`${routes.docs}/components/accordion`);
+                router.push("/kinfolk/tree");
                 setOpen(false);
               }}
             >
-              Components
+              Family tree
             </CommandItem>
             <CommandItem
               onSelect={() => {
-                router.push(`${routes.docs}/themes`);
+                router.push("/kinfolk/events");
                 setOpen(false);
               }}
             >
-              Themes
-            </CommandItem>
-            <CommandItem
-              onSelect={() => {
-                router.push(`${routes.docs}/examples`);
-                setOpen(false);
-              }}
-            >
-              Examples
+              Events
             </CommandItem>
           </CommandGroup>
         </CommandList>
