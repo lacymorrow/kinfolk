@@ -4,6 +4,8 @@ Launch your app at light speed. Fast, flexible, and feature-packed for the moder
 
 Made with ❤️ by [Lacy](https://lacy.sh)
 
+[![Shipkit Hero](./public/images/hero.png)](https://shipkit.io)
+
 ## Deploy in 30 Seconds
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fshipkit-io%2Fshipkit&project-name=shipkit-app&repository-name=shipkit-app&redirect-url=https%3A%2F%2Fshipkit.io%2Fx%2Fvercel%2Fdeploy&developer-id=oac_KkY2TcPxIWTDtL46WGqwZ4BF&production-deploy-hook=Shipkit%20Deploy&demo-title=Shipkit%20Preview&demo-description=The%20official%20Shipkit%20Preview.%20A%20full%20featured%20demo%20with%20dashboards%2C%20AI%20tools%2C%20and%20integrations%20with%20Docs%2C%20Payload%2C%20and%20Builder.io&demo-url=https%3A%2F%2Fshipkit.io%2Fdemo&demo-image=%2F%2Fshipkit.io%2Fimages%2Fdemo.png)
@@ -11,6 +13,19 @@ Made with ❤️ by [Lacy](https://lacy.sh)
 [![Open in Codeflow](https://developer.stackblitz.com/img/open_in_codeflow.svg)](https://pr.new/lacymorrow/shipkit)
 
 No environment variables needed to start! The setup wizard guides you through configuration after deployment.
+
+## Screenshots
+
+<table>
+  <tr>
+    <td><a href="https://shipkit.io/features"><img src="./public/images/features.png" alt="Features comparison" /></a></td>
+    <td><a href="https://shipkit.io/pricing"><img src="./public/images/pricing.png" alt="Pricing" /></a></td>
+  </tr>
+  <tr>
+    <td><a href="https://shipkit.io/sign-in"><img src="./public/images/sign-in.png" alt="Authentication" /></a></td>
+    <td><a href="https://shipkit.io/blog"><img src="./public/images/blog.png" alt="Blog / CMS" /></a></td>
+  </tr>
+</table>
 
 ## What's Included
 
@@ -27,7 +42,7 @@ No environment variables needed to start! The setup wizard guides you through co
 
 ## Stack
 
-- ⚡️ [Next.js 15](https://nextjs.org) - App Router
+- ⚡️ [Next.js 16](https://nextjs.org) - App Router
 - 🎨 [Tailwind CSS](https://tailwindcss.com) + [Shadcn/UI](https://ui.shadcn.com)
 - 🛠 [Drizzle ORM](https://orm.drizzle.team) - Type-safe database
 - 📝 [Payload CMS v3](https://payloadcms.com) - Content management
@@ -37,11 +52,19 @@ No environment variables needed to start! The setup wizard guides you through co
 ## Quick Start
 
 ```bash
-git clone https://github.com/shipkit-io/shipkit
+# Start from Bones (public) and add ShipKit integrations from the registry
+npm create shipkit-app@latest my-app
+cd my-app
+bun dev
+
+# Or clone the everything-included repo
+git clone https://github.com/lacymorrow/shipkit
 cd shipkit
 bun install --frozen-lockfile
 bun dev
 ```
+
+ShipKit's upstream is [Bones](https://github.com/shipkit-io/bones). Bones is the root template; ShipKit is the everything-included build that proves the integrations work together.
 
 ## Documentation
 
@@ -52,14 +75,18 @@ bun dev
 
 ## Support
 
-- 💬 [GitHub Discussions](https://github.com/shipkit-io/shipkit/discussions)
+[![Sponsor](https://img.shields.io/badge/Sponsor-❤-ea4aaa?style=for-the-badge&logo=github)](https://github.com/sponsors/lacymorrow)
+
+ShipKit is built and maintained full-time. Your sponsorship directly funds new features and faster releases.
+
+- 💬 [GitHub Discussions](https://github.com/shipkit-io/bones/discussions)
 - 🐦 [Follow Updates](https://twitter.com/lacybuilds)
 - 📧 [Contact](https://shipkit.io/contact)
 - 🌐 [Website](https://shipkit.io)
 
 ## Found a bug?
 
-[GitHub Issues](https://github.com/shipkit-io/shipkit/issues)
+[GitHub Issues](https://github.com/lacymorrow/shipkit/issues)
 
 ## License
 

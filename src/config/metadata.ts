@@ -29,7 +29,7 @@ const shareImages = siteConfig.ogImage
 const defaultOpenGraph: OpenGraph = {
   type: "website",
   locale: siteConfig.metadata.locale,
-  url: siteConfig.url,
+  url: "./",
   title: siteConfig.title,
   description: siteConfig.description,
   siteName: siteConfig.title,
@@ -138,11 +138,12 @@ export const constructMetadata = ({
     ...metadata,
     openGraph: {
       ...defaultOpenGraph,
+      ...(metadata.openGraph ?? {}),
       // Assign the extracted title string or fallback
       title: metaTitleString ?? defaultMetaTitleString,
       // Ensure description is not null
       description: metadata.description ?? defaultMetadata.description ?? undefined,
-      images: images.length > 0 ? images : defaultOpenGraph.images,
+      images: images.length > 0 ? images : (metadata.openGraph?.images ?? defaultOpenGraph.images),
     },
     twitter: {
       ...defaultTwitter,
@@ -174,5 +175,9 @@ export const routeMetadata = {
   docs: {
     title: `Documentation - Build Better Apps Faster | ${siteConfig.title}`,
     description: `Comprehensive guides, API references, and examples to help you build production-ready apps with ${siteConfig.title}. From quick starts to advanced topics.`,
+  },
+  faq: {
+    title: `FAQ - Frequently Asked Questions | ${siteConfig.title}`,
+    description: `Common questions about ${siteConfig.title} — features, pricing, setup, and what to expect.`,
   },
 };

@@ -1,5 +1,5 @@
-import { createReadStream } from "fs";
-import { stat } from "fs/promises";
+import { createReadStream } from "node:fs";
+import { stat } from "node:fs/promises";
 import { type NextRequest, NextResponse } from "next/server";
 import { routes } from "@/config/routes";
 import { siteConfig } from "@/config/site-config";
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
       isAdmin({ email: userEmail }),
       PaymentService.hasUserPurchasedVariant({
         userId,
-        variantId: siteConfig.store.products.shipkit || "",
+        variantId: siteConfig.store.products.shipkit ?? "",
         provider: "lemonsqueezy",
       }),
     ]);
@@ -99,6 +99,6 @@ export async function GET(request: NextRequest) {
       userId: session?.user?.id,
     });
 
-    return NextResponse.redirect(new URL(`${routes.docs}?error=download-failed`, siteConfig.url));
+    return NextResponse.redirect(new URL(`${routes.home}?error=download-failed`, siteConfig.url));
   }
 }

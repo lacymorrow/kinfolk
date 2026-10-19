@@ -21,7 +21,7 @@ const createRedirects = (sources: Route[], destination: Route, permanent = false
   for (const source of sources) {
     expanded.add(source);
     if (source.endsWith("/") && source.length > 1) {
-      expanded.add(source.slice(0, -1) as Route);
+      expanded.add(source.slice(0, -1));
     } else if (!source.endsWith("/")) {
       expanded.add(`${source}/` as Route);
     }
@@ -39,7 +39,6 @@ const createRedirects = (sources: Route[], destination: Route, permanent = false
 /* eslint-disable-next-line @typescript-eslint/require-await */
 export const redirects = async (): Promise<Redirect[]> => {
   return [
-    ...createRedirects(["/doc", "/docs", "/documentation"], routes.docs, true),
     ...createRedirects(
       ["/account", "/accounts", "/settings/accounts"],
       routes.settings.account,

@@ -14,7 +14,6 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { ShortcutAction } from "@/config/keyboard-shortcuts";
-import { routes } from "@/config/routes";
 import { siteConfig } from "@/config/site-config";
 import { cn } from "@/lib/utils";
 
@@ -45,7 +44,7 @@ export function CommandMenu() {
         <span className="inline-flex lg:hidden">Search...</span>
         <ShortcutDisplay
           action={ShortcutAction.OPEN_SEARCH}
-          className="pointer-events-none absolute right-1.5 top-2 hidden opacity-100 sm:flex"
+          className="pointer-events-none absolute top-2 right-1.5 hidden opacity-100 sm:flex"
         />
       </Button>
       <CommandDialog open={open} onOpenChange={setOpen}>
@@ -55,35 +54,27 @@ export function CommandMenu() {
           <CommandGroup heading="Links">
             <CommandItem
               onSelect={() => {
-                router.push(routes.docs);
+                router.push("/kinfolk/directory");
                 setOpen(false);
               }}
             >
-              Documentation
+              Directory
             </CommandItem>
             <CommandItem
               onSelect={() => {
-                router.push(`${routes.docs}/components/accordion`);
+                router.push("/kinfolk/tree");
                 setOpen(false);
               }}
             >
-              Components
+              Family tree
             </CommandItem>
             <CommandItem
               onSelect={() => {
-                router.push(`${routes.docs}/themes`);
+                router.push("/kinfolk/events");
                 setOpen(false);
               }}
             >
-              Themes
-            </CommandItem>
-            <CommandItem
-              onSelect={() => {
-                router.push(`${routes.docs}/examples`);
-                setOpen(false);
-              }}
-            >
-              Examples
+              Events
             </CommandItem>
           </CommandGroup>
         </CommandList>
