@@ -18,7 +18,12 @@ import { requireFamilyAccess, requireAuth } from "./auth";
 // Wrap a read against the database so connection failures (e.g. paused Supabase
 // tenant, network blip) degrade to an empty/default value instead of throwing a
 // 500. The kinfolk error boundary handles unexpected throws beyond this.
-async function safeRead<T>(fallback: T, fn: () => Promise<T>): Promise<T> {
+//
+// `NoInfer` on the fallback is load-bearing: T is inferred from `fn` alone, so
+// the row types survive the wrapper. Inferring from both arguments made every
+// `safeRead(null, ...)` caller widen T to `any`, which erased the query types
+// and left the consuming pages full of implicit-`any` callbacks (LAC-6511).
+async function safeRead<T>(fallback: NoInfer<T>, fn: () => Promise<T>): Promise<T> {
 	if (!db) return fallback;
 	try {
 		return await fn();
@@ -33,7 +38,7 @@ export async function getFamilies() {
 }
 
 export async function getFamily(id: string) {
-	return safeRead<any>(null, async () => {
+	return safeRead(null, async () => {
 		const [family] = await db!.select().from(families).where(eq(families.id, id));
 		return family ?? null;
 	});
@@ -74,14 +79,14 @@ export async function searchPeople(query: string) {
 }
 
 export async function getPerson(id: string) {
-	return safeRead<any>(null, async () => {
+	return safeRead(null, async () => {
 		const [person] = await db!.select().from(people).where(eq(people.id, id));
 		return person ?? null;
 	});
 }
 
 export async function getPersonWithDetails(id: string) {
-	return safeRead<any>(null, async () => {
+	return safeRead(null, async () => {
 		const [person] = await db!.select().from(people).where(eq(people.id, id));
 		if (!person) return null;
 
@@ -140,7 +145,7 @@ export async function getAllPeopleWithRelationships(familyId?: string) {
 }
 
 export async function getFirstFamily() {
-	return safeRead<any>(null, async () => {
+	return safeRead(null, async () => {
 		const [family] = await db!.select().from(families).limit(1);
 		return family ?? null;
 	});
@@ -149,7 +154,7 @@ export async function getFirstFamily() {
 export async function getPersonByUserId(userId: string) {
 	if (!db) return null;
 	await requireAuth();
-	return safeRead<any>(null, async () => {
+	return safeRead(null, async () => {
 		const [person] = await db!.select().from(people).where(eq(people.userId, userId));
 		return person ?? null;
 	});
@@ -171,3 +176,21 @@ export async function getUnlinkedPeople(familyId?: string) {
 			.orderBy(asc(people.lastName), asc(people.firstName)),
 	);
 }
+
+// ---------------------------------------------------------------------------
+// Regression guard (LAC-6511)
+// ---------------------------------------------------------------------------
+// `safeRead<any>(null, ...)` once erased the return type of every read that can
+// resolve to `null`, and the damage only surfaced three files away as
+// implicit-`any` callbacks in the person page. These are compile-time only
+// (erased at build) and fail `bun run typecheck` the moment a read goes `any`
+// again, next to the wrapper that would cause it rather than at a consumer.
+type IsAny<T> = 0 extends 1 & T ? true : false;
+type Expect<T extends true> = T;
+type NotAny<T> = IsAny<T> extends false ? true : false;
+
+type _PersonWithDetailsIsTyped = Expect<
+	NotAny<NonNullable<Awaited<ReturnType<typeof getPersonWithDetails>>>["addresses"]>
+>;
+type _PersonIsTyped = Expect<NotAny<Awaited<ReturnType<typeof getPerson>>>>;
+type _FamilyIsTyped = Expect<NotAny<Awaited<ReturnType<typeof getFirstFamily>>>>;
