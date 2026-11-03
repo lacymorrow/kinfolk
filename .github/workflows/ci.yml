@@ -117,6 +117,10 @@ jobs:
     timeout-minutes: 25
     needs: [typecheck, lint]
     env:
+      # `next build` runs with NODE_ENV=production, and src/config/secrets.ts
+      # refuses to derive a secret from the public BASE_URL there. A throwaway
+      # master is enough for a build that is never served (LAC-6511).
+      APP_SECRET: ci-only-secret-do-not-use-in-prod
       AUTH_SECRET: ci-only-secret-do-not-use-in-prod
       SKIP_ENV_VALIDATION: "1"
     steps:
@@ -153,6 +157,8 @@ jobs:
       E2E_SKIP_DB_SETUP: "0"
       USE_EXTERNAL_DB: "1"
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/shipkit_e2e
+      # Same production build as the build job, same throwaway master.
+      APP_SECRET: ci-only-secret-do-not-use-in-prod
       AUTH_SECRET: ci-only-secret-do-not-use-in-prod
       SKIP_ENV_VALIDATION: "1"
       CI: "true"
