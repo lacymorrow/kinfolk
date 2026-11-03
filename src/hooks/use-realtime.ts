@@ -57,7 +57,7 @@ export function useRealtimeSubscription(tables: string[]) {
 
 		for (const table of tables) {
 			channel.on(
-				"postgres_changes" as any,
+				"postgres_changes",
 				{ event: "*", schema: "public", table },
 				() => {
 					// Debounce rapid successive changes

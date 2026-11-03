@@ -19,10 +19,10 @@ import type { Person, Contact, Address, Relationship } from "@/server/db/schema"
 interface PersonWithDetails extends Person {
 	contacts: Contact[];
 	addresses: Address[];
-	relationships: Array<{
+	relationships: {
 		relationship: Relationship;
 		relatedPerson: Person;
-	}>;
+	}[];
 }
 
 interface PersonFormProps {

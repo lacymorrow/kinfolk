@@ -1,7 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { getPersonWithDetails, getPeople, getFirstFamily } from "@/server/actions/kinfolk/queries";
 import { PersonForm } from "./person-form";
-import type { Person } from "@/server/db/schema";
 
 export default async function EditPersonPage({
 	params,
@@ -13,7 +12,7 @@ export default async function EditPersonPage({
 	const family = await getFirstFamily();
 	const allPeopleRows = family ? await getPeople(family.id) : [];
 	const allPeople = allPeopleRows
-		.map((row) => row.person as Person)
+		.map((row) => row.person)
 		.filter((p) => p.id !== id);
 
 	return (

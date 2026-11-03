@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { getPersonWithDetails, getFirstFamily, getPeople } from "@/server/actions/kinfolk/queries";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AddRelationshipButtons } from "@/components/kinfolk/add-relationship-buttons";
-import type { Person } from "@/server/db/schema";
 
 export default async function PersonPage({
 	params,
@@ -23,7 +22,7 @@ export default async function PersonPage({
 	// Fetch family + all people for the add-person dialog
 	const family = await getFirstFamily();
 	const allPeopleRows = family ? await getPeople(family.id) : [];
-	const allPeople = allPeopleRows.map((row) => row.person as Person);
+	const allPeople = allPeopleRows.map((row) => row.person);
 
 	// Group relationships by type
 	// type="child" means "this person is a child of relatedPerson" → relatedPerson is a parent
@@ -191,7 +190,7 @@ const RelationshipGroup = ({
 	relationships,
 }: {
 	title: string;
-	relationships: Array<{
+	relationships: {
 		relationship: { id: string; type: string };
 		relatedPerson: {
 			id: string;
@@ -199,7 +198,7 @@ const RelationshipGroup = ({
 			lastName: string;
 			maidenName: string | null;
 		};
-	}>;
+	}[];
 }) => {
 	if (relationships.length === 0) return null;
 

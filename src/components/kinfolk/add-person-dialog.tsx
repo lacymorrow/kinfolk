@@ -25,13 +25,13 @@ import { UserPlus, Search, Check, Plus, AlertTriangle } from "lucide-react";
 
 // --- Types ---
 
-export type RelationshipContext = {
+export interface RelationshipContext {
 	/** The person we're adding a relationship TO */
 	personId: string;
 	personName: string;
 	/** Pre-selected relationship type */
 	type: "parent" | "child" | "spouse" | "partner" | "sibling";
-};
+}
 
 interface AddPersonDialogProps {
 	open: boolean;
@@ -106,9 +106,12 @@ export function AddPersonDialog({
 	// Step: "search" (showing suggestions) or "create" (filling details)
 	const [step, setStep] = useState<"search" | "create">("search");
 
-	// Reset on open/close
+	// Reset on open/close.
+	// TODO(LAC-6511 follow-up): move this form into DialogContent so Radix's
+	// unmount-on-close resets it and this effect can go away entirely.
 	useEffect(() => {
 		if (open) {
+			// eslint-disable-next-line react-hooks/set-state-in-effect
 			setFirstName("");
 			setLastName("");
 			setGender("");
@@ -158,7 +161,7 @@ export function AddPersonDialog({
 		setStep("create");
 	}, []);
 
-	const handleSubmit = useCallback(async () => {
+	const handleSubmit = useCallback(() => {
 		startTransition(async () => {
 			setError(null);
 			try {
@@ -271,7 +274,7 @@ export function AddPersonDialog({
 							<div>
 								<div className="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
 									<Search className="h-3 w-3" />
-									Existing people matching "{query}"
+									Existing people matching &ldquo;{query}&rdquo;
 								</div>
 								<div className="max-h-48 space-y-1 overflow-auto">
 									{suggestions.map((p) => (
@@ -287,7 +290,7 @@ export function AddPersonDialog({
 											<div>
 												<div className="font-medium">{p.firstName} {p.lastName}</div>
 												{p.nickname && (
-													<div className="text-xs text-muted-foreground">"{p.nickname}"</div>
+													<div className="text-xs text-muted-foreground">&ldquo;{p.nickname}&rdquo;</div>
 												)}
 											</div>
 										</button>

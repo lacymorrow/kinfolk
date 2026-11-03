@@ -82,8 +82,8 @@ export const DirectoryClient = ({ people, familyId }: DirectoryClientProps) => {
 				(p) =>
 					p.person.firstName.toLowerCase().includes(q) ||
 					p.person.lastName.toLowerCase().includes(q) ||
-					p.person.nickname?.toLowerCase().includes(q) ||
-					p.person.maidenName?.toLowerCase().includes(q),
+					(p.person.nickname?.toLowerCase().includes(q) ?? false) ||
+					(p.person.maidenName?.toLowerCase().includes(q) ?? false),
 			);
 		}
 

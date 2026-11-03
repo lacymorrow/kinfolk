@@ -70,6 +70,8 @@ export function clerkSignInUrl(nextUrl?: string, page: "signIn" | "signUp" = "si
  * offers every method configured in the dashboard, so `provider` is ignored.
  * `redirect: false` returns `{ ok, url }` instead of redirecting.
  */
+// Stays `async` to shadow Auth.js `signIn`, which every caller awaits.
+// eslint-disable-next-line @typescript-eslint/require-await
 export async function clerkSignIn(_provider?: string, options?: FormData | SignInOptions) {
   const opts = toOptions(options);
   const redirectTo = opts.redirectTo ?? opts.callbackUrl ?? clerkConfig.afterSignInUrl;

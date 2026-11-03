@@ -1,6 +1,6 @@
 import { getPeople, getFirstFamily } from "@/server/actions/kinfolk/queries";
 import { DirectoryClient } from "./directory-client";
-import type { Person, Address } from "@/server/db/schema";
+import type { Address } from "@/server/db/schema";
 
 export default async function DirectoryPage() {
 	const family = await getFirstFamily();
@@ -15,7 +15,7 @@ export default async function DirectoryPage() {
 	const rows = await getPeople(family.id);
 
 	const people = rows.map((row) => ({
-		person: row.person as Person,
+		person: row.person,
 		address: (row.address as Address) ?? null,
 	}));
 

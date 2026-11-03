@@ -108,6 +108,8 @@ export function useClerkSession<R extends boolean>(options?: UseSessionOptions<R
  * in the dashboard, so `provider` is ignored. `redirect: false` returns the
  * URL instead of navigating.
  */
+// Stays `async` to shadow Auth.js `signIn`, which every caller awaits.
+// eslint-disable-next-line @typescript-eslint/require-await
 export async function clerkSignIn(_provider?: string, options?: SignInOptionsLike) {
   const url = clerkSignInUrl(options?.redirectTo ?? options?.callbackUrl ?? currentPage());
   if (options?.redirect !== false) navigate(url);

@@ -21,10 +21,10 @@ import type { Person, Contact, Address } from "@/server/db/schema";
 interface PersonDetails extends Person {
 	contacts: Contact[];
 	addresses: Address[];
-	relationships: Array<{
+	relationships: {
 		relationship: { id: string; type: string };
 		relatedPerson: { id: string; firstName: string; lastName: string; maidenName: string | null };
-	}>;
+	}[];
 }
 
 interface ProfileClientProps {

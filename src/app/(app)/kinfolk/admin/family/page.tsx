@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { getPeople, getFirstFamily } from "@/server/actions/kinfolk/queries";
 import { AddPersonForm } from "./add-person-form";
-import type { Person } from "@/server/db/schema";
 
 export default async function AdminFamilyPage() {
 	const family = await getFirstFamily();
@@ -17,7 +16,7 @@ export default async function AdminFamilyPage() {
 	}
 
 	const rows = await getPeople(family.id);
-	const people = rows.map((row) => row.person as Person);
+	const people = rows.map((row) => row.person);
 
 	return (
 		<div className="mx-auto max-w-4xl p-4 sm:p-6 lg:p-8">
