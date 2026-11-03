@@ -17,7 +17,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import dagre from "@dagrejs/dagre";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Person, Relationship } from "@/server/db/schema";
 import { AddPersonDialog } from "@/components/kinfolk/add-person-dialog";
@@ -45,7 +45,6 @@ interface PersonNodeData {
 }
 
 const PersonNode = ({ data }: NodeProps<Node<PersonNodeData>>) => {
-	const router = useRouter();
 	const person = data.person;
 	const initials = `${person.firstName?.[0] ?? ""}${person.lastName?.[0] ?? ""}`;
 	const birthYear = person.birthdate
@@ -53,9 +52,13 @@ const PersonNode = ({ data }: NodeProps<Node<PersonNodeData>>) => {
 		: null;
 
 	return (
-		<div
-			className="cursor-pointer rounded-lg border bg-card p-3 shadow-sm transition-shadow hover:shadow-md"
-			onClick={() => router.push(`/kinfolk/person/${person.id}`)}
+		// A real link rather than a click-handled div: keyboard reachable, and
+		// modifier-click opens the person in a new tab. `draggable={false}` keeps
+		// the browser's native link drag out of React Flow's node drag.
+		<Link
+			href={`/kinfolk/person/${person.id}`}
+			draggable={false}
+			className="block cursor-pointer rounded-lg border bg-card p-3 text-inherit no-underline shadow-sm transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 		>
 			<Handle type="target" position={Position.Top} id="top" className="!bg-muted-foreground !w-2 !h-2" />
 			<Handle type="source" position={Position.Bottom} id="bottom" className="!bg-muted-foreground !w-2 !h-2" />
@@ -86,7 +89,7 @@ const PersonNode = ({ data }: NodeProps<Node<PersonNodeData>>) => {
 					)}
 				</div>
 			</div>
-		</div>
+		</Link>
 	);
 };
 
@@ -99,7 +102,7 @@ interface UnionNodeData {
 	[key: string]: unknown;
 }
 
-const UnionNode = ({ data }: NodeProps<UnionNodeData>) => {
+const UnionNode = ({ data }: NodeProps<Node<UnionNodeData>>) => {
 	const hasChildren = data.hasChildren;
 	const collapsed = data.collapsed;
 	const onToggle = data.onToggle;
@@ -112,15 +115,20 @@ const UnionNode = ({ data }: NodeProps<UnionNodeData>) => {
 					: "bg-pink-300"
 			}`}
 			style={{ width: UNION_SIZE, height: UNION_SIZE }}
-			onClick={(e) => {
-				e.stopPropagation();
-				if (hasChildren && onToggle) onToggle(data.unionId);
-			}}
 		>
 			{hasChildren && (
-				<span className="text-white" style={{ fontSize: 10, lineHeight: 1 }}>
+				<button
+					type="button"
+					aria-expanded={!collapsed}
+					aria-label={collapsed ? "Show children" : "Hide children"}
+					className="flex h-full w-full items-center justify-center rounded-full text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+					onClick={(e) => {
+						e.stopPropagation();
+						onToggle?.(data.unionId);
+					}}
+				>
 					{collapsed ? <ChevronRight className="w-2.5 h-2.5" /> : <ChevronDown className="w-2.5 h-2.5" />}
-				</span>
+				</button>
 			)}
 			<Handle type="target" position={Position.Left} id="left" className="!bg-pink-400 !w-1.5 !h-1.5 !border-0" />
 			<Handle type="target" position={Position.Right} id="right" className="!bg-pink-400 !w-1.5 !h-1.5 !border-0" />
