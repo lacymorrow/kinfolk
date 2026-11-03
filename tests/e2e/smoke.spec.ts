@@ -52,9 +52,9 @@ test.describe("public routes render", () => {
 });
 
 test.describe("auth gate", () => {
-  // Asserts the property that matters — a signed-out visitor does not get the
-  // page — rather than where they land. The page currently redirects to
-  // /auth/login, which 404s; that is LAC-6523, and this test should keep
+  // Asserts the property that matters (a signed-out visitor does not get the
+  // page) rather than where they land. The page currently redirects to
+  // /auth/login, which 404s; that is LAC-6681, and this test should keep
   // passing once the destination is corrected.
   test("/kinfolk/profile does not render for an unauthenticated user", async ({ page }) => {
     await page.goto("/kinfolk/profile");
