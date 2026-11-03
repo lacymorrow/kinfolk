@@ -21,6 +21,10 @@ name: CI
 on:
   pull_request:
     branches: [main]
+    # `labeled` is here so the three expensive jobs, which are gated on a
+    # `ci:full` label, can be turned on for a PR that is already open.
+    # Without it the label only takes effect on the next push (LAC-6511).
+    types: [opened, synchronize, reopened, labeled]
   push:
     branches: [main]
 
