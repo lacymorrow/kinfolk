@@ -12,5 +12,4 @@ export interface NavLink {
   authVisibility?: "authenticated" | "unauthenticated";
 }
 
-export const defaultNavLinks: NavLink[] = [
-];
+export const defaultNavLinks: NavLink[] = [];

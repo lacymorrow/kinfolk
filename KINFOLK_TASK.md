@@ -1,13 +1,16 @@
 # Kinfolk Phase 1 Build Task
 
 ## What to Build
+
 A family directory app built on the existing Shipkit boilerplate. Phase 1: family tree visualization + searchable directory + person detail pages.
 
 ## Stack (already in Shipkit)
+
 - Next.js (App Router), Drizzle ORM, Tailwind, shadcn/ui, Bun
 - Add: `@xyflow/react` (ReactFlow v12) for family tree visualization
 
 ## Database Schema
+
 Add these tables to the existing Drizzle schema (in `src/server/db/`). Keep existing Shipkit tables, add alongside them.
 
 ### New Tables
@@ -95,6 +98,7 @@ Under `src/app/(app)/kinfolk/` (or just `src/app/(app)/` if cleaner):
 ## UI Components to Build
 
 ### Family Tree (`/tree`)
+
 - Use `@xyflow/react` (ReactFlow)
 - Custom person node: avatar circle + name + birth year
 - Edges: solid for parent-child, dashed for spouse/partner
@@ -103,6 +107,7 @@ Under `src/app/(app)/kinfolk/` (or just `src/app/(app)/` if cleaner):
 - Mobile responsive (simplified view OK)
 
 ### Directory (`/directory`)
+
 - Card grid layout (responsive)
 - Each card: avatar, name, location, relationship tag
 - Search bar (name search)
@@ -110,6 +115,7 @@ Under `src/app/(app)/kinfolk/` (or just `src/app/(app)/` if cleaner):
 - Sort by name, age
 
 ### Person Detail (`/person/[id]`)
+
 - Header: avatar, full name, age, location
 - Contact info section (email, phone with click-to-action)
 - Address with map link
@@ -117,6 +123,7 @@ Under `src/app/(app)/kinfolk/` (or just `src/app/(app)/` if cleaner):
 - Edit button for admins
 
 ### Person Form (`/person/[id]/edit` and `/admin/family`)
+
 - Form with all person fields
 - Relationship picker (select existing people)
 - Address fields
@@ -127,23 +134,28 @@ Under `src/app/(app)/kinfolk/` (or just `src/app/(app)/` if cleaner):
 Create a seed script that populates the Morrow family. Here's the family tree:
 
 ### Generation 1 (Parents)
+
 - **Tom Morrow** & **Susan Morrow** (née Cowhig)
 
 ### Generation 2 (Tom's brother's family)
+
 - **John Morrow** & **Suzanne Morrow** (spouse)
 
 ### Generation 3 (Lacy + cousins)
 
 **Tom & Susan's child:**
+
 - **Lacy Morrow** & Cait — 1011 Sewickley Dr, Charlotte, NC 28209 — me@lacymorrow.com
 
 **John & Suzanne's daughters:**
+
 - **Sarah Alice Morrow** — 75 Walter Ridge Rd, West Jefferson, NC 28694 — sarahamorro3@gmail.com
 - **Kelsey Fontenot** (née Morrow) & Andrew Fontenot — 6809 Miranda Dr, Austin, TX 78752
 - **Mattie** (married, last name TBD)
 - **Holly** (married, last name TBD)
 
 **Other cousins (parents not yet known):**
+
 - **Taylor** & Tracy (partner) — 1604 Harmont Dr, Raleigh, NC 27603 — kids: Twyla, Beatrice
 - **Kristie Parker** (née Morrow?) & Daniel Parker — 104 Alabama Ave, Carolina Beach, NC 28428 — Kristiebyrd@gmail.com
 - **Liza Stevens** & Ross Stevens — 20 W Henderson St, Wrightsville Beach, NC 28480 — Lizastevens09@gmail.com — kids: Saylor, Lily
@@ -152,6 +164,7 @@ Create a seed script that populates the Morrow family. Here's the family tree:
 - **Lacy Lawrence** (née Morrow?) & Josh Lawrence — 3209 Camden Cir, Wilmington, NC 28403 — Lalawrence37@gmail.com / jflawrence87@gmail.com — kid: Avery
 
 ### Generation 4 (Babies)
+
 - Twyla (Taylor & Tracy's)
 - Beatrice (Taylor & Tracy's)
 - Saylor Stevens (Liza & Ross's)
@@ -160,6 +173,7 @@ Create a seed script that populates the Morrow family. Here's the family tree:
 - Avery Lawrence (Lacy L. & Josh's)
 
 ## Implementation Notes
+
 - Use the existing Shipkit auth system (NextAuth) - don't rebuild auth
 - Use the existing Drizzle setup - just add new schema tables
 - Use existing shadcn/ui components from Shipkit
@@ -168,6 +182,7 @@ Create a seed script that populates the Morrow family. Here's the family tree:
 - Keep it simple - this is Phase 1
 
 ## Don't Touch
+
 - Existing Shipkit auth/payment/CMS setup
 - Existing routes that aren't kinfolk-related
 - The CLI folder

@@ -10,25 +10,25 @@ import { people } from "@/server/db/schema";
  * Returns the session user ID on success, throws on failure.
  */
 export async function requireFamilyAccess(familyId: string | null | undefined): Promise<string> {
-	if (!familyId) throw new Error("Family ID required");
-	const session = await auth();
-	if (!session?.user?.id) throw new Error("Unauthorized");
+  if (!familyId) throw new Error("Family ID required");
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
 
-	if (!db) throw new Error("Database not available");
+  if (!db) throw new Error("Database not available");
 
-	// Check that the user has a person record in this family
-	const [membership] = await db
-		.select({ id: people.id })
-		.from(people)
-		.where(eq(people.familyId, familyId))
-		.limit(1);
+  // Check that the user has a person record in this family
+  const [membership] = await db
+    .select({ id: people.id })
+    .from(people)
+    .where(eq(people.familyId, familyId))
+    .limit(1);
 
-	// For now, if the user is authenticated they can access any family
-	// they have a person record linked to. If no person record exists
-	// but they're authed, allow access (admin/owner case).
-	// TODO: Tighten this with proper RBAC when roles are implemented
+  // For now, if the user is authenticated they can access any family
+  // they have a person record linked to. If no person record exists
+  // but they're authed, allow access (admin/owner case).
+  // TODO: Tighten this with proper RBAC when roles are implemented
 
-	return session.user.id;
+  return session.user.id;
 }
 
 /**
@@ -36,7 +36,7 @@ export async function requireFamilyAccess(familyId: string | null | undefined): 
  * Returns the session user ID on success, throws on failure.
  */
 export async function requireAuth(): Promise<string> {
-	const session = await auth();
-	if (!session?.user?.id) throw new Error("Unauthorized");
-	return session.user.id;
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+  return session.user.id;
 }
