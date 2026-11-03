@@ -37,18 +37,14 @@ const defaultGroups: FooterElement[] = [
     type: "group",
     content: {
       header: { label: "Product" },
-      items: [
-        { href: routes.home, label: "Home" },
-      ],
+      items: [{ href: routes.home, label: "Home" }],
     },
   },
   {
     type: "group",
     content: {
       header: { label: "Resources" },
-      items: [
-        { href: routes.auth.signIn, label: "Sign in" },
-      ],
+      items: [{ href: routes.auth.signIn, label: "Sign in" }],
     },
   },
   {

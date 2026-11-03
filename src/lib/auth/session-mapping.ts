@@ -112,7 +112,7 @@ export function mapClerkSession(
     id: user.id,
     email: primary?.emailAddress ?? "",
     name: clerkName(user),
-    image: user.imageUrl || null,
+    image: user.imageUrl ?? null,
     emailVerified: primary?.verification?.status === "verified" ? new Date() : null,
     role,
     isAdmin: role === UserRole.admin,

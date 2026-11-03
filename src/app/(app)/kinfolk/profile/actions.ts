@@ -7,18 +7,18 @@ import { db } from "@/server/db";
 import { people } from "@/server/db/schema";
 
 export async function claimProfile(personId: string) {
-	if (!db) throw new Error("Database not available");
+  if (!db) throw new Error("Database not available");
 
-	const session = await auth();
-	if (!session?.user?.id) throw new Error("Unauthorized");
-	const userId = session.user.id;
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+  const userId = session.user.id;
 
-	// Verify the person exists and isn't already claimed
-	const [person] = await db.select().from(people).where(eq(people.id, personId));
-	if (!person) throw new Error("Person not found");
-	if (person.userId) throw new Error("This person is already claimed");
+  // Verify the person exists and isn't already claimed
+  const [person] = await db.select().from(people).where(eq(people.id, personId));
+  if (!person) throw new Error("Person not found");
+  if (person.userId) throw new Error("This person is already claimed");
 
-	await db.update(people).set({ userId }).where(eq(people.id, personId));
-	revalidatePath("/kinfolk/profile");
-	revalidatePath("/kinfolk");
+  await db.update(people).set({ userId }).where(eq(people.id, personId));
+  revalidatePath("/kinfolk/profile");
+  revalidatePath("/kinfolk");
 }

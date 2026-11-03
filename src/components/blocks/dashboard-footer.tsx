@@ -1,9 +1,7 @@
 import { Link } from "@/components/primitives/link";
 import { routes } from "@/config/routes";
 
-const links = [
-  { label: "Privacy", href: routes.privacy },
-];
+const links = [{ label: "Privacy", href: routes.privacy }];
 
 /** One quiet status line. The app's footer is not the marketing footer. */
 export const DashboardFooter = () => {

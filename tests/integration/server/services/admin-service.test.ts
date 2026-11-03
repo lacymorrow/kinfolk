@@ -46,10 +46,47 @@ describe("isAdmin", () => {
     expect(await isAdmin({ email: 12345 as never })).toBe(false);
   });
 
-  it("returns true when email matches the static admin email list (config check)", async () => {
+  it("returns true when the static admin list matches an account with a verified email", async () => {
     const spy = vi.spyOn(adminConfig, "isAdminByEmailConfig").mockReturnValue(true);
     try {
-      expect(await isAdmin({ email: "anything@example.com" })).toBe(true);
+      const db = getTestDb();
+      await db.insert(users).values({
+        id: "config-verified",
+        email: "config-verified@shipkit.test",
+        role: "user",
+        emailVerified: new Date(),
+      });
+
+      expect(await isAdmin({ email: "config-verified@shipkit.test" })).toBe(true);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  // Check #1 stopped trusting the raw address on its own: a config match now
+  // also needs an account that proved it owns the address. Without these two,
+  // anyone who could present a listed address was an admin.
+  it("returns false when the static admin list matches an address with no account", async () => {
+    const spy = vi.spyOn(adminConfig, "isAdminByEmailConfig").mockReturnValue(true);
+    try {
+      expect(await isAdmin({ email: "anything@example.com" })).toBe(false);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("returns false when the static admin list matches an unverified account", async () => {
+    const spy = vi.spyOn(adminConfig, "isAdminByEmailConfig").mockReturnValue(true);
+    try {
+      const db = getTestDb();
+      await db.insert(users).values({
+        id: "config-unverified",
+        email: "config-unverified@shipkit.test",
+        role: "user",
+        emailVerified: null,
+      });
+
+      expect(await isAdmin({ email: "config-unverified@shipkit.test" })).toBe(false);
     } finally {
       spy.mockRestore();
     }
