@@ -30,7 +30,7 @@ Both links pre-fill the prompt and wait for you to press Enter. Nothing runs unt
 ## What happens
 
 1. The agent asks about your app's name, auth, payments, content and services. Say "defaults" for Neon Postgres, Better Auth with GitHub and Google, MDX content, Resend and no payments yet.
-2. It creates the project from [Bones](https://github.com/shipkit-io/bones) with `npm create shipkit-app@latest` and adds the integrations you chose from the [ShipKit registry](/docs/features/registry) with `npx shadcn add @shipkit/<item>`.
+2. It creates the project from [Bones](https://github.com/shipkit-io/bones) with `npm create shipkit-app@latest` and adds the integrations you chose from the ShipKit registry with `npx shadcn add @shipkit/<item>`.
 3. Every env key the integrations need lands in `.env.local` empty. The agent prints where each value comes from; you fill them in.
 4. It runs typecheck and the dev server and reports which features are on.
 
